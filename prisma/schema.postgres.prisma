@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum BillStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PaymentMethodType {
+  CASH
+  UPI
+  CARD
+  BANK_TRANSFER
+  CHEQUE
+  WALLET
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(ADMIN)
+  avatar    String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bills     Bill[]
+  auditLogs AuditLog[]
+
+  @@map("users")
+}
+
+model Vendor {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  phone     String?
+  email     String?
+  address   String?
+  gstin     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bills Bill[]
+
+  @@map("vendors")
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String   @default("#f97316")
+  icon      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bills Bill[]
+
+  @@map("categories")
+}
+
+model PaymentMethod {
+  id        String            @id @default(cuid())
+  name      String
+  type      PaymentMethodType
+  isActive  Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  bills Bill[]
+
+  @@map("payment_methods")
+}
+
+model Bill {
+  id              String     @id @default(cuid())
+  billNumber      String     @unique
+  billDate        DateTime
+  amount          Decimal    @db.Decimal(10, 2)
+  remarks         String?
+  status          BillStatus @default(PENDING)
+  submittedBy     String     @default("PUBLIC")
+  submitterName   String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  vendorId        String
+  vendor          Vendor        @relation(fields: [vendorId], references: [id])
+
+  categoryId      String
+  category        Category      @relation(fields: [categoryId], references: [id])
+
+  paymentMethodId String
+  paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id])
+
+  paidById        String?
+  paidBy          User?         @relation(fields: [paidById], references: [id])
+
+  images          BillImage[]
+
+  @@map("bills")
+}
+
+model BillImage {
+  id           String   @id @default(cuid())
+  url          String
+  publicId     String
+  thumbnailUrl String?
+  createdAt    DateTime @default(now())
+
+  billId String
+  bill   Bill   @relation(fields: [billId], references: [id], onDelete: Cascade)
+
+  @@map("bill_images")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  entity    String
+  entityId  String
+  details   Json?
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model RestaurantSettings {
+  id          String  @id @default(cuid())
+  name        String  @default("Jay's Kitchen")
+  address     String?
+  phone       String?
+  email       String?
+  gstin       String?
+  logo        String?
+  currency    String  @default("USD")
+  timezone    String  @default("America/New_York")
+
+  @@map("restaurant_settings")
+}
