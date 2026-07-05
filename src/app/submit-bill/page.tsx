@@ -163,7 +163,7 @@ export default function SubmitBillPage() {
   // Success screen
   if (submitted && submittedBill) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--background)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ minHeight: '100dvh', background: 'var(--background)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
         <div style={{ maxWidth: 440, width: '100%', textAlign: 'center' }}>
           <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(34,197,94,0.12)', border: '2px solid rgba(34,197,94,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', color: '#22c55e' }}>
             <CheckCircle2 size={40} />
@@ -199,7 +199,7 @@ export default function SubmitBillPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--background)', position: 'relative' }}>
+    <div style={{ minHeight: '100dvh', background: 'var(--background)', position: 'relative' }}>
       {/* Top nav */}
       <nav style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', borderBottom: '1px solid var(--border)', background: 'var(--card)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

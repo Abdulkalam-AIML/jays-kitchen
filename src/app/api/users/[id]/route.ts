@@ -26,7 +26,7 @@ export async function PATCH(
     if (validated.name) updateData.name = validated.name
     if (validated.email) updateData.email = validated.email
     if (validated.role && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN')) updateData.role = validated.role
-    if (validated.password) updateData.password = await bcrypt.hash(validated.password, 12)
+    if (validated.password) updateData.password = await bcrypt.hash(validated.password, 10)
     if (body.isActive !== undefined && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN')) updateData.isActive = body.isActive
 
     const updated = await prisma.user.update({

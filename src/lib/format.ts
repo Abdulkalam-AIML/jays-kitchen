@@ -112,3 +112,14 @@ export function truncate(text: string, length: number): string {
   if (text.length <= length) return text
   return text.slice(0, length) + '…'
 }
+
+/**
+ * Optimizes image URLs (specifically adds Cloudinary compression params)
+ */
+export function getOptimizedImageUrl(url: string | null | undefined): string {
+  if (!url) return ''
+  if (url.includes('res.cloudinary.com') && !url.includes('f_auto,q_auto')) {
+    return url.replace('/upload/', '/upload/f_auto,q_auto/')
+  }
+  return url
+}

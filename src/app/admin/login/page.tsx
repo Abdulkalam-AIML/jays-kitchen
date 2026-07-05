@@ -52,7 +52,7 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', background: 'var(--background)', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ minHeight: '100dvh', display: 'flex', background: 'var(--background)', position: 'relative', overflow: 'hidden' }}>
       {/* Watermark */}
       <div aria-hidden="true" style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 0 }}>
         <Image src="/logo.png" alt="" width={600} height={600} style={{ opacity: 0.03, filter: 'blur(1.5px)', objectFit: 'contain' }} priority={false} />

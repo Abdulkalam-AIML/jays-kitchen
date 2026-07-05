@@ -54,7 +54,7 @@ export default function Sidebar() {
     <div
       style={{
         width: collapsed ? 64 : 240,
-        height: '100vh',
+        height: '100dvh',
         background: 'var(--sidebar-bg)',
         display: 'flex',
         flexDirection: 'column',

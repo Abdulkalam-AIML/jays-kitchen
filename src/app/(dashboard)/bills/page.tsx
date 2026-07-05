@@ -8,7 +8,7 @@ import {
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
-import { formatCurrency, formatDate, PAYMENT_METHOD_ICONS } from '@/lib/format'
+import { formatCurrency, formatDate, PAYMENT_METHOD_ICONS, getOptimizedImageUrl } from '@/lib/format'
 import { useAuth } from '@/providers/auth-provider'
 import BillDrawer from '@/components/bills/bill-drawer'
 
@@ -671,7 +671,7 @@ export default function BillsPage() {
       {viewImage && (
         <>
           <div onClick={() => setViewImage(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}>
-            <img src={viewImage} alt="Bill" loading="lazy" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12 }} />
+            <img src={getOptimizedImageUrl(viewImage)} alt="Bill" loading="lazy" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12 }} />
             <button onClick={() => setViewImage(null)} style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
               <X size={18} />
             </button>

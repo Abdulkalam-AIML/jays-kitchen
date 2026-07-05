@@ -85,12 +85,12 @@ export default function DashboardCharts({ data, loading, settings, currencySymbo
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
+          className="col-span-1 md:col-span-2"
           style={{
             background: 'var(--card)',
             border: '1px solid var(--card-border)',
             borderRadius: 20,
             padding: '20px 20px 12px',
-            gridColumn: 'span 2',
           }}
         >
           <div style={{ marginBottom: 16 }}>

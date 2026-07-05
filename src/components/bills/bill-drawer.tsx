@@ -7,7 +7,7 @@ import { X, Plus, Save, Loader2, Calendar, Hash, Building2, Tag, CreditCard, Use
 import toast from 'react-hot-toast'
 import Image from 'next/image'
 import { billSchema, type BillInput } from '@/lib/validations'
-import { formatCurrency, toInputDate } from '@/lib/format'
+import { formatCurrency, toInputDate, getOptimizedImageUrl } from '@/lib/format'
 import { useAuth } from '@/providers/auth-provider'
 import { getCurrencySymbol } from '@/lib/currency'
 
@@ -209,7 +209,7 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
           position: 'fixed',
           top: 0,
           right: 0,
-          height: '100vh',
+          height: '100dvh',
           width: '100%',
           maxWidth: 500,
           background: 'var(--card)',
@@ -431,7 +431,7 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
                     onClick={() => window.open(img.url, '_blank')}
                   >
                     <img
-                      src={img.thumbnailUrl || img.url}
+                      src={getOptimizedImageUrl(img.thumbnailUrl || img.url)}
                       alt="Bill"
                       loading="lazy"
                       style={{ objectFit: 'cover', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}

@@ -11,7 +11,7 @@ export default function LandingPage() {
   return (
     <div
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         background: 'linear-gradient(145deg, #0f0f13 0%, #1a1a2e 50%, #16213e 100%)',
         display: 'flex',
         flexDirection: 'column',

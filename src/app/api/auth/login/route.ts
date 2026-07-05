@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     if (!user) {
       const userCount = await prisma.user.count()
       if (userCount === 0) {
-        const superAdminPass = await bcrypt.hash('SuperAdmin@123', 12)
+        const superAdminPass = await bcrypt.hash('SuperAdmin@123', 10)
         user = await prisma.user.create({
           data: {
             name: 'Jay Super Admin',
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
           }
         })
         // Also create default admin
-        const adminPass = await bcrypt.hash('Admin@123', 12)
+        const adminPass = await bcrypt.hash('Admin@123', 10)
         await prisma.user.create({
           data: {
             name: 'Jay Admin',

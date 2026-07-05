@@ -430,7 +430,7 @@ tbody td {
   position: fixed;
   top: 0;
   left: 0;
-  height: 100vh;
+  height: 100dvh;
   width: 240px;
   background: var(--sidebar-bg);
   display: flex;
@@ -497,7 +497,7 @@ tbody td {
   position: fixed;
   top: 0;
   right: 0;
-  height: 100vh;
+  height: 100dvh;
   background: var(--card);
   z-index: 201;
   display: flex;
@@ -636,6 +636,14 @@ tbody td {
 @media (max-width: 640px) {
   h1 { font-size: 1.5rem; }
   h2 { font-size: 1.25rem; }
+  .input {
+    padding: 11px 14px;
+    min-height: 44px;
+  }
+  .btn {
+    padding: 12px 20px;
+    min-height: 44px;
+  }
 }
 
 

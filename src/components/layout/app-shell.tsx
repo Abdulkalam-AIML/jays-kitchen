@@ -42,7 +42,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* ===================== LAYOUT ===================== */}
-      <div style={{ display: 'flex', minHeight: '100vh', position: 'relative', zIndex: 1 }}>
+      <div style={{ display: 'flex', minHeight: '100dvh', position: 'relative', zIndex: 1 }}>
         <Sidebar />
 
         {/* Main content area */}
