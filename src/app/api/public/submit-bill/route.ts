@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Require image upload on backend API
-    if (!file) {
+    if (!file || file.size === 0) {
       return NextResponse.json(
         { success: false, error: 'Bill receipt image is required' },
         { status: 400 }

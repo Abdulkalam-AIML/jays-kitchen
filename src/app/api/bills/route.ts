@@ -86,17 +86,34 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const startAll = Date.now()
     const [total, bills, aggregate] = await Promise.all([
-      prisma.bill.count({ where }),
-      prisma.bill.findMany({
-        where,
-        select: BILL_SELECT,
-        orderBy: { [sortBy]: sortOrder },
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      prisma.bill.aggregate({ where, _sum: { amount: true } }),
+      (async () => {
+        const start = Date.now()
+        const res = await prisma.bill.count({ where })
+        console.log(`[PERF_BILLS_COUNT] took ${Date.now() - start}ms`)
+        return res
+      })(),
+      (async () => {
+        const start = Date.now()
+        const res = await prisma.bill.findMany({
+          where,
+          select: BILL_SELECT,
+          orderBy: { [sortBy]: sortOrder },
+          skip: (page - 1) * limit,
+          take: limit,
+        })
+        console.log(`[PERF_BILLS_FINDMANY] took ${Date.now() - start}ms`)
+        return res
+      })(),
+      (async () => {
+        const start = Date.now()
+        const res = await prisma.bill.aggregate({ where, _sum: { amount: true } })
+        console.log(`[PERF_BILLS_AGGREGATE] took ${Date.now() - start}ms`)
+        return res
+      })(),
     ])
+    console.log(`[PERF_BILLS_TOTAL] Promise.all took ${Date.now() - startAll}ms`)
 
     return NextResponse.json({
       success: true,
