@@ -15,9 +15,11 @@ export async function POST(request: NextRequest) {
     if (!user) {
       const userCount = await prisma.user.count()
       if (userCount === 0) {
+        const superAdminPassword = process.env.INITIAL_SUPER_ADMIN_PASSWORD || 'SuperAdmin@123'
+        const adminPassword = process.env.INITIAL_ADMIN_PASSWORD || 'Admin@123'
         const [superAdminPass, adminPass] = await Promise.all([
-          bcrypt.hash('SuperAdmin@123', 10),
-          bcrypt.hash('Admin@123', 10)
+          bcrypt.hash(superAdminPassword, 10),
+          bcrypt.hash(adminPassword, 10)
         ])
         const [superAdmin, admin] = await Promise.all([
           prisma.user.create({

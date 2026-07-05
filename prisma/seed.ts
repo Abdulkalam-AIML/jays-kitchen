@@ -17,7 +17,10 @@ async function main() {
   await prisma.restaurantSettings.deleteMany()
 
   // Super Admin user
-  const superAdminPass = await bcrypt.hash('SuperAdmin@123', 12)
+  const superAdminPassword = process.env.INITIAL_SUPER_ADMIN_PASSWORD || 'SuperAdmin@123'
+  const adminPassword = process.env.INITIAL_ADMIN_PASSWORD || 'Admin@123'
+
+  const superAdminPass = await bcrypt.hash(superAdminPassword, 10)
   const superAdmin = await prisma.user.upsert({
     where: { email: 'superadmin@jayskitchen.com' },
     update: {},
@@ -31,7 +34,7 @@ async function main() {
   console.log('✅ Super Admin user created:', superAdmin.email)
 
   // Admin user
-  const adminPass = await bcrypt.hash('Admin@123', 12)
+  const adminPass = await bcrypt.hash(adminPassword, 10)
   const admin = await prisma.user.upsert({
     where: { email: 'admin@jayskitchen.com' },
     update: {},
