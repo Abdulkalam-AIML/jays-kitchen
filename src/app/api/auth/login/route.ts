@@ -15,27 +15,29 @@ export async function POST(request: NextRequest) {
     if (!user) {
       const userCount = await prisma.user.count()
       if (userCount === 0) {
-        const superAdminPass = await bcrypt.hash('SuperAdmin@123', 10)
-        user = await prisma.user.create({
-          data: {
-            name: 'Jay Super Admin',
-            email: 'superadmin@jayskitchen.com',
-            password: superAdminPass,
-            role: 'SUPER_ADMIN',
-          }
-        })
-        // Also create default admin
-        const adminPass = await bcrypt.hash('Admin@123', 10)
-        await prisma.user.create({
-          data: {
-            name: 'Jay Admin',
-            email: 'admin@jayskitchen.com',
-            password: adminPass,
-            role: 'ADMIN',
-          }
-        })
-        // Re-fetch the requested user
-        user = await prisma.user.findUnique({ where: { email } })
+        const [superAdminPass, adminPass] = await Promise.all([
+          bcrypt.hash('SuperAdmin@123', 10),
+          bcrypt.hash('Admin@123', 10)
+        ])
+        const [superAdmin, admin] = await Promise.all([
+          prisma.user.create({
+            data: {
+              name: 'Jay Super Admin',
+              email: 'superadmin@jayskitchen.com',
+              password: superAdminPass,
+              role: 'SUPER_ADMIN',
+            }
+          }),
+          prisma.user.create({
+            data: {
+              name: 'Jay Admin',
+              email: 'admin@jayskitchen.com',
+              password: adminPass,
+              role: 'ADMIN',
+            }
+          })
+        ])
+        user = email === 'superadmin@jayskitchen.com' ? superAdmin : admin
       }
     }
 
