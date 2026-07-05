@@ -199,7 +199,9 @@ export async function getCachedDashboardStats(filters: {
 
   const fetchStats = unstable_cache(
     async () => {
-      const baseWhere: Prisma.BillWhereInput = {}
+      const baseWhere: Prisma.BillWhereInput = {
+        status: { not: 'REJECTED' }
+      }
       if (filters.vendorId) baseWhere.vendorId = filters.vendorId
       if (filters.categoryId) baseWhere.categoryId = filters.categoryId
       if (filters.paymentMethodId) baseWhere.paymentMethodId = filters.paymentMethodId
@@ -249,7 +251,7 @@ export async function getCachedDashboardStats(filters: {
       const lastMonth = Number(lastMonthAgg._sum.amount || 0)
       const percentChange = lastMonth === 0 ? 0 : Math.round(((thisMonth - lastMonth) / lastMonth) * 100)
 
-      const statusCounts = { pending: 0, approved: 0, rejected: 0 }
+      const statusCounts = { pending: 0, approved: 0 }
       for (const group of statusCountsGroup) {
         const statusKey = group.status.toLowerCase() as keyof typeof statusCounts
         if (statusKey in statusCounts) {

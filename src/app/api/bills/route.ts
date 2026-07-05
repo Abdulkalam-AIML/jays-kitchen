@@ -12,6 +12,9 @@ const BILL_SELECT = {
   amount: true,
   remarks: true,
   status: true,
+  paymentStatus: true,
+  amountPaid: true,
+  remainingAmount: true,
   submittedBy: true,
   submitterName: true,
   paidBy: true,
@@ -123,6 +126,22 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validated = billSchema.parse(body)
 
+    // Server-side recomputation of amountPaid and remainingAmount based on paymentStatus
+    const amt = Number(validated.amount)
+    let finalAmountPaid = 0
+    let finalRemainingAmount = 0
+
+    if (validated.paymentStatus === 'FULLY_PAID') {
+      finalAmountPaid = amt
+      finalRemainingAmount = 0
+    } else if (validated.paymentStatus === 'NOT_PAID') {
+      finalAmountPaid = 0
+      finalRemainingAmount = amt
+    } else if (validated.paymentStatus === 'PARTIALLY_PAID') {
+      finalAmountPaid = Math.max(0, validated.amountPaid || 0)
+      finalRemainingAmount = Math.max(0, amt - finalAmountPaid)
+    }
+
     const bill = await prisma.bill.create({
       data: {
         billNumber: validated.billNumber,
@@ -136,6 +155,9 @@ export async function POST(request: NextRequest) {
         paidBy: validated.paidBy || '',
         submittedBy: user.name,
         status: 'APPROVED',  // Admin-created bills are pre-approved
+        paymentStatus: validated.paymentStatus,
+        amountPaid: finalAmountPaid,
+        remainingAmount: finalRemainingAmount,
       },
       select: BILL_SELECT,
     })

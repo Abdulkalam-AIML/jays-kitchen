@@ -12,6 +12,9 @@ const BILL_SELECT = {
   amount: true,
   remarks: true,
   status: true,
+  paymentStatus: true,
+  amountPaid: true,
+  remainingAmount: true,
   submittedBy: true,
   submitterName: true,
   paidBy: true,
@@ -79,6 +82,26 @@ export async function PATCH(
     const body = await request.json()
     const validated = billSchema.partial().parse(body)
 
+    // Compute updated payment status fields
+    const newAmount = validated.amount !== undefined ? Number(validated.amount) : Number(existing.amount)
+    const newPaymentStatus = validated.paymentStatus || existing.paymentStatus
+    let finalAmountPaid = Number(existing.amountPaid)
+    let finalRemainingAmount = Number(existing.remainingAmount)
+
+    if (validated.amount !== undefined || validated.paymentStatus !== undefined || validated.amountPaid !== undefined) {
+      if (newPaymentStatus === 'FULLY_PAID') {
+        finalAmountPaid = newAmount
+        finalRemainingAmount = 0
+      } else if (newPaymentStatus === 'NOT_PAID') {
+        finalAmountPaid = 0
+        finalRemainingAmount = newAmount
+      } else if (newPaymentStatus === 'PARTIALLY_PAID') {
+        const inputPaid = validated.amountPaid !== undefined ? validated.amountPaid : Number(existing.amountPaid)
+        finalAmountPaid = Math.max(0, inputPaid)
+        finalRemainingAmount = Math.max(0, newAmount - finalAmountPaid)
+      }
+    }
+
     const bill = await prisma.bill.update({
       where: { id },
       data: {
@@ -90,6 +113,9 @@ export async function PATCH(
         ...(validated.categoryId && { categoryId: validated.categoryId }),
         ...(validated.paymentMethodId && { paymentMethodId: validated.paymentMethodId }),
         ...(validated.paidBy !== undefined && { paidBy: validated.paidBy }),
+        ...(validated.paymentStatus && { paymentStatus: validated.paymentStatus }),
+        amountPaid: finalAmountPaid,
+        remainingAmount: finalRemainingAmount,
       },
       select: BILL_SELECT,
     })

@@ -19,6 +19,12 @@ enum BillStatus {
   REJECTED
 }
 
+enum PaymentStatus {
+  FULLY_PAID
+  NOT_PAID
+  PARTIALLY_PAID
+}
+
 enum PaymentMethodType {
   CASH
   UPI
@@ -99,6 +105,9 @@ model Bill {
   amount          Decimal    @db.Decimal(10, 2)
   remarks         String?
   status          BillStatus @default(PENDING)
+  paymentStatus   PaymentStatus @default(NOT_PAID)
+  amountPaid      Decimal       @default(0) @db.Decimal(10, 2)
+  remainingAmount Decimal       @default(0) @db.Decimal(10, 2)
   submittedBy     String     @default("PUBLIC")
   submitterName   String?
   createdAt       DateTime   @default(now())

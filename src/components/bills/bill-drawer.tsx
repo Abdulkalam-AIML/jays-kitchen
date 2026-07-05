@@ -26,6 +26,9 @@ interface Bill {
   paymentMethodId: string
   paidBy?: { name: string } | null
   images: BillImage[]
+  paymentStatus?: 'FULLY_PAID' | 'NOT_PAID' | 'PARTIALLY_PAID'
+  amountPaid?: number | string
+  remainingAmount?: number | string
 }
 
 interface Props {
@@ -54,6 +57,7 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
     formState: { errors },
     reset,
     watch,
+    setValue,
   } = useForm<BillInput>({
     resolver: zodResolver(billSchema),
     defaultValues: bill
@@ -66,13 +70,36 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
           paidBy: bill.paidBy?.name || '',
           amount: Number(bill.amount),
           remarks: bill.remarks || '',
+          paymentStatus: bill.paymentStatus || 'NOT_PAID',
+          amountPaid: Number(bill.amountPaid || 0),
+          remainingAmount: Number(bill.remainingAmount || 0),
         }
       : {
           billDate: toInputDate(new Date()),
           billNumber: '',
           paidBy: '',
+          paymentStatus: 'NOT_PAID',
+          amountPaid: 0,
+          remainingAmount: 0,
         },
   })
+
+  const watchedAmount = watch('amount') || 0
+  const watchedPaymentStatus = watch('paymentStatus') || 'NOT_PAID'
+  const watchedAmountPaid = watch('amountPaid') || 0
+
+  useEffect(() => {
+    if (watchedPaymentStatus === 'FULLY_PAID') {
+      setValue('amountPaid', watchedAmount)
+      setValue('remainingAmount', 0)
+    } else if (watchedPaymentStatus === 'NOT_PAID') {
+      setValue('amountPaid', 0)
+      setValue('remainingAmount', watchedAmount)
+    } else if (watchedPaymentStatus === 'PARTIALLY_PAID') {
+      const rem = Math.max(0, watchedAmount - watchedAmountPaid)
+      setValue('remainingAmount', Number(rem.toFixed(2)))
+    }
+  }, [watchedAmount, watchedPaymentStatus, watchedAmountPaid, setValue])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -113,6 +140,10 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
   }
 
   const onSubmit = async (data: BillInput) => {
+    if (!isEdit && !pendingFile) {
+      toast.error('Bill receipt image is required')
+      return
+    }
     setSaving(true)
     try {
       const url = isEdit ? `/api/bills/${bill!.id}` : '/api/bills'
@@ -308,6 +339,44 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
             <input id="amount" {...register('amount', { valueAsNumber: true })} type="number" step="0.01" min="0" placeholder="0.00" className="drawer-input" />
           </FieldGroup>
 
+          {/* Payment Status */}
+          <FieldGroup label="Payment Status" error={errors.paymentStatus?.message} icon={<CreditCard size={14} />} id="paymentStatus">
+            <select id="paymentStatus" {...register('paymentStatus')} className="drawer-select">
+              <option value="FULLY_PAID">Fully Paid</option>
+              <option value="NOT_PAID">Not Paid</option>
+              <option value="PARTIALLY_PAID">Partially Paid</option>
+            </select>
+          </FieldGroup>
+
+          {/* Amount Paid + Remaining Amount */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+            <FieldGroup label="Amount Paid" error={errors.amountPaid?.message} icon={<span style={{ fontSize: 13, fontWeight: 700 }}>{currencySymbol}</span>} id="amountPaid">
+              <input
+                id="amountPaid"
+                {...register('amountPaid', { valueAsNumber: true })}
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                disabled={watchedPaymentStatus !== 'PARTIALLY_PAID'}
+                className="drawer-input"
+              />
+            </FieldGroup>
+            <FieldGroup label="Remaining Amount to be Paid" error={errors.remainingAmount?.message} icon={<span style={{ fontSize: 13, fontWeight: 700 }}>{currencySymbol}</span>} id="remainingAmount">
+              <input
+                id="remainingAmount"
+                {...register('remainingAmount', { valueAsNumber: true })}
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                disabled
+                className="drawer-input"
+                style={{ opacity: 0.7, cursor: 'not-allowed' }}
+              />
+            </FieldGroup>
+          </div>
+
           {/* Category + Payment Method */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <FieldGroup label="Category" error={errors.categoryId?.message} icon={<Tag size={14} />} id="categoryId">
@@ -351,13 +420,40 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
             />
           </FieldGroup>
 
+          {/* Read-only Payment Info display */}
+          {isEdit && (
+            <div style={{ background: 'var(--background)', border: '1px solid var(--border)', borderRadius: 12, padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: 'var(--foreground-muted)' }}>Payment Status</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
+                  {watchedPaymentStatus === 'FULLY_PAID' && 'Fully Paid'}
+                  {watchedPaymentStatus === 'NOT_PAID' && 'Not Paid'}
+                  {watchedPaymentStatus === 'PARTIALLY_PAID' && 'Partially Paid'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: 'var(--foreground-muted)' }}>Amount Paid</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--foreground)' }}>
+                  {formatCurrency(watchedAmountPaid, settings?.currency)}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: 'var(--foreground-muted)' }}>Remaining Amount</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: watchedPaymentStatus === 'FULLY_PAID' ? 'var(--success)' : 'var(--error)' }}>
+                  {formatCurrency(Math.max(0, watchedAmount - watchedAmountPaid), settings?.currency)}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Bill Images — shown for both CREATE and EDIT */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Upload size={14} color="var(--foreground-muted)" />
                 Bill Image
-                <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--foreground-muted)' }}>(optional)</span>
+                {!isEdit && <span style={{ fontWeight: 600, fontSize: 11, color: 'var(--error)' }}>* (Required)</span>}
+                {isEdit && <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--foreground-muted)' }}>(Optional)</span>}
               </label>
               <label
                 style={{

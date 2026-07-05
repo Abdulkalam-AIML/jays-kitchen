@@ -64,12 +64,32 @@ export default function SubmitBillPage() {
   const [remarks, setRemarks] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
 
+  // Payment Status Tracking
+  const [paymentStatus, setPaymentStatus] = useState('NOT_PAID')
+  const [amountPaid, setAmountPaid] = useState('0')
+  const [remainingAmount, setRemainingAmount] = useState('0')
+
   // Errors
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     fetchDropdowns()
   }, [])
+
+  useEffect(() => {
+    const amt = Number(amount) || 0
+    if (paymentStatus === 'FULLY_PAID') {
+      setAmountPaid(amt.toFixed(2))
+      setRemainingAmount('0.00')
+    } else if (paymentStatus === 'NOT_PAID') {
+      setAmountPaid('0.00')
+      setRemainingAmount(amt.toFixed(2))
+    } else if (paymentStatus === 'PARTIALLY_PAID') {
+      const amtPaid = Number(amountPaid) || 0
+      const rem = Math.max(0, amt - amtPaid)
+      setRemainingAmount(rem.toFixed(2))
+    }
+  }, [amount, paymentStatus, amountPaid])
 
   const fetchDropdowns = async () => {
     try {
@@ -96,6 +116,7 @@ export default function SubmitBillPage() {
     if (!paymentMethodId) e.paymentMethodId = 'Please select payment method'
     if (!submitterName.trim()) e.submitterName = 'Your name is required'
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) e.amount = 'Enter a valid amount'
+    if (!imageFile) e.imageFile = 'Bill receipt image is required'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -114,6 +135,9 @@ export default function SubmitBillPage() {
       fd.append('paymentMethodId', paymentMethodId)
       fd.append('submitterName', submitterName.trim())
       fd.append('amount', amount)
+      fd.append('paymentStatus', paymentStatus)
+      fd.append('amountPaid', amountPaid)
+      fd.append('remainingAmount', remainingAmount)
       if (remarks.trim()) fd.append('remarks', remarks.trim())
       if (imageFile) fd.append('file', imageFile)
 
@@ -146,6 +170,9 @@ export default function SubmitBillPage() {
     setAmount('')
     setRemarks('')
     setImageFile(null)
+    setPaymentStatus('NOT_PAID')
+    setAmountPaid('0')
+    setRemainingAmount('0')
     setErrors({})
     setSubmitted(false)
     setSubmittedBill(null)
@@ -298,6 +325,51 @@ export default function SubmitBillPage() {
               {errors.amount && <p style={{ color: 'var(--error)', fontSize: 12, marginTop: 4 }}>{errors.amount}</p>}
             </div>
 
+            {/* Payment Status */}
+            <div style={{ marginBottom: 18 }}>
+              <label htmlFor="paymentStatus" style={labelStyle}>Payment Status</label>
+              <select
+                id="paymentStatus"
+                value={paymentStatus}
+                onChange={(e) => { setPaymentStatus(e.target.value) }}
+                style={{ ...inputStyle, cursor: 'pointer' }}
+              >
+                <option value="FULLY_PAID">Fully Paid</option>
+                <option value="NOT_PAID">Not Paid</option>
+                <option value="PARTIALLY_PAID">Partially Paid</option>
+              </select>
+            </div>
+
+            {/* Amount Paid + Remaining Amount */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 18 }}>
+              <div>
+                <label htmlFor="amountPaid" style={labelStyle}>Amount Paid</label>
+                <input
+                  id="amountPaid"
+                  type="number"
+                  value={amountPaid}
+                  onChange={(e) => { setAmountPaid(e.target.value) }}
+                  placeholder="0.00"
+                  min="0"
+                  step="0.01"
+                  disabled={paymentStatus !== 'PARTIALLY_PAID'}
+                  style={{ ...inputStyle, opacity: paymentStatus !== 'PARTIALLY_PAID' ? 0.7 : 1, cursor: paymentStatus !== 'PARTIALLY_PAID' ? 'not-allowed' : 'text' }}
+                  onFocus={focusStyle}
+                  onBlur={blurStyle('amountPaid')}
+                />
+              </div>
+              <div>
+                <label htmlFor="remainingAmount" style={labelStyle}>Remaining Amount to be Paid</label>
+                <input
+                  id="remainingAmount"
+                  type="number"
+                  value={remainingAmount}
+                  disabled
+                  style={{ ...inputStyle, opacity: 0.7, cursor: 'not-allowed' }}
+                />
+              </div>
+            </div>
+
             {/* Vendor */}
             <div style={{ marginBottom: 18 }}>
               <label htmlFor="vendorId" style={labelStyle}>Vendor</label>
@@ -364,46 +436,50 @@ export default function SubmitBillPage() {
               />
             </div>
 
-            {/* Image Upload */}
-            <div style={{ marginBottom: 28 }}>
-              <label style={labelStyle}><Upload size={13} style={{ display: 'inline', marginRight: 5 }} />Bill Image <span style={{ fontWeight: 400, color: 'var(--foreground-muted)', fontSize: 11 }}>(optional — jpg, jpeg, png, pdf)</span></label>
-              <div
-                style={{
-                  border: `2px dashed ${imageFile ? 'var(--primary)' : 'var(--border)'}`,
-                  borderRadius: 12, padding: '20px', textAlign: 'center',
-                  background: imageFile ? 'rgba(249,115,22,0.04)' : 'transparent',
-                  cursor: 'pointer', transition: 'all 0.15s',
-                  position: 'relative',
-                }}
-                onClick={() => document.getElementById('bill-image-upload')?.click()}
-              >
-                {imageFile ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
-                    <div style={{ color: 'var(--primary)', fontWeight: 600, fontSize: 14 }}>📎 {imageFile.name}</div>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); setImageFile(null) }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--error)', display: 'flex' }}
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <Upload size={24} style={{ color: 'var(--foreground-muted)', marginBottom: 8 }} />
-                    <p style={{ color: 'var(--foreground-muted)', fontSize: 13 }}>Click to upload or drag and drop</p>
-                    <p style={{ color: 'var(--foreground-muted)', fontSize: 11, marginTop: 4 }}>JPG, PNG, PDF up to 10MB</p>
-                  </>
-                )}
-                <input
-                  id="bill-image-upload"
-                  type="file"
-                  accept=".jpg,.jpeg,.png,.pdf"
-                  style={{ display: 'none' }}
-                  onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-                />
-              </div>
-            </div>
+             {/* Image Upload */}
+             <div style={{ marginBottom: 28 }}>
+               <label style={labelStyle}>
+                 <Upload size={13} style={{ display: 'inline', marginRight: 5 }} />
+                 Bill Image <span style={{ fontWeight: 600, color: 'var(--error)', fontSize: 11 }}>* (Required — jpg, jpeg, png, pdf)</span>
+               </label>
+               <div
+                 style={{
+                   border: `2px dashed ${imageFile ? 'var(--primary)' : (errors.imageFile ? 'var(--error)' : 'var(--border)')}`,
+                   borderRadius: 12, padding: '20px', textAlign: 'center',
+                   background: imageFile ? 'rgba(249,115,22,0.04)' : 'transparent',
+                   cursor: 'pointer', transition: 'all 0.15s',
+                   position: 'relative',
+                 }}
+                 onClick={() => document.getElementById('bill-image-upload')?.click()}
+               >
+                 {imageFile ? (
+                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center' }}>
+                     <div style={{ color: 'var(--primary)', fontWeight: 600, fontSize: 14 }}>📎 {imageFile.name}</div>
+                     <button
+                       type="button"
+                       onClick={(e) => { e.stopPropagation(); setImageFile(null) }}
+                       style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--error)', display: 'flex' }}
+                     >
+                       <X size={16} />
+                     </button>
+                   </div>
+                 ) : (
+                   <>
+                     <Upload size={24} style={{ color: 'var(--foreground-muted)', marginBottom: 8 }} />
+                     <p style={{ color: 'var(--foreground-muted)', fontSize: 13 }}>Click to upload or drag and drop</p>
+                     <p style={{ color: 'var(--foreground-muted)', fontSize: 11, marginTop: 4 }}>JPG, PNG, PDF up to 10MB</p>
+                   </>
+                 )}
+                 <input
+                   id="bill-image-upload"
+                   type="file"
+                   accept=".jpg,.jpeg,.png,.pdf"
+                   style={{ display: 'none' }}
+                   onChange={(e) => { setImageFile(e.target.files?.[0] || null); setErrors((p) => ({ ...p, imageFile: '' })) }}
+                 />
+               </div>
+               {errors.imageFile && <p style={{ color: 'var(--error)', fontSize: 12, marginTop: 4 }}>{errors.imageFile}</p>}
+             </div>
 
             {/* Action buttons */}
             <div style={{ display: 'flex', gap: 10 }}>

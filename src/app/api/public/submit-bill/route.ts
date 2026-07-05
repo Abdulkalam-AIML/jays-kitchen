@@ -45,6 +45,9 @@ export async function POST(request: NextRequest) {
     let remarks: string | undefined = undefined
     let file: File | null = null
 
+    let paymentStatus = 'NOT_PAID'
+    let amountPaidInput = 0
+
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData()
       billNumber = (formData.get('billNumber') as string) || ''
@@ -56,6 +59,8 @@ export async function POST(request: NextRequest) {
       amount = Number(formData.get('amount') || 0)
       remarks = (formData.get('remarks') as string) || undefined
       file = formData.get('file') as File | null
+      paymentStatus = (formData.get('paymentStatus') as string) || 'NOT_PAID'
+      amountPaidInput = Number(formData.get('amountPaid') || 0)
     } else {
       const body = await request.json()
       const validated = publicBillSchema.parse(body)
@@ -67,6 +72,16 @@ export async function POST(request: NextRequest) {
       submitterName = validated.submitterName
       amount = validated.amount
       remarks = validated.remarks
+      paymentStatus = validated.paymentStatus || 'NOT_PAID'
+      amountPaidInput = validated.amountPaid || 0
+    }
+
+    // Require image upload on backend API
+    if (!file) {
+      return NextResponse.json(
+        { success: false, error: 'Bill receipt image is required' },
+        { status: 400 }
+      )
     }
 
     // Validate using Zod schema
@@ -79,7 +94,25 @@ export async function POST(request: NextRequest) {
       submitterName,
       amount,
       remarks,
+      paymentStatus,
+      amountPaid: amountPaidInput,
     })
+
+    // Server-side recomputation of amountPaid and remainingAmount based on paymentStatus
+    const amt = Number(validated.amount)
+    let finalAmountPaid = 0
+    let finalRemainingAmount = 0
+
+    if (validated.paymentStatus === 'FULLY_PAID') {
+      finalAmountPaid = amt
+      finalRemainingAmount = 0
+    } else if (validated.paymentStatus === 'NOT_PAID') {
+      finalAmountPaid = 0
+      finalRemainingAmount = amt
+    } else if (validated.paymentStatus === 'PARTIALLY_PAID') {
+      finalAmountPaid = Math.max(0, validated.amountPaid || 0)
+      finalRemainingAmount = Math.max(0, amt - finalAmountPaid)
+    }
 
     // Ensure unique billNumber
     let finalBillNumber = validated.billNumber.trim()
@@ -102,6 +135,9 @@ export async function POST(request: NextRequest) {
         submitterName: validated.submitterName,
         status: 'PENDING',
         paidById: null,
+        paymentStatus: validated.paymentStatus,
+        amountPaid: finalAmountPaid,
+        remainingAmount: finalRemainingAmount,
       },
       include: {
         vendor: { select: { name: true } },

@@ -14,6 +14,9 @@ export const billSchema = z.object({
   paidBy: z.string().max(100, 'Name is too long').optional().or(z.literal('')),
   amount: z.number().positive('Amount must be positive'),
   remarks: z.string().optional(),
+  paymentStatus: z.enum(['FULLY_PAID', 'NOT_PAID', 'PARTIALLY_PAID']).optional(),
+  amountPaid: z.number().nonnegative().optional(),
+  remainingAmount: z.number().nonnegative().optional(),
 })
 
 // Schema for public bill submissions (no auth required)
@@ -26,6 +29,9 @@ export const publicBillSchema = z.object({
   submitterName: z.string().min(1, 'Your name is required'),
   amount: z.number().positive('Amount must be positive'),
   remarks: z.string().optional(),
+  paymentStatus: z.enum(['FULLY_PAID', 'NOT_PAID', 'PARTIALLY_PAID']).optional(),
+  amountPaid: z.number().nonnegative().optional(),
+  remainingAmount: z.number().nonnegative().optional(),
 })
 
 export const vendorSchema = z.object({

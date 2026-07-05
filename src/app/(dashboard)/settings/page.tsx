@@ -568,61 +568,93 @@ function PaymentsTab() {
   }
 
   return (
-    <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
-      <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <h3 style={{ fontSize: 16, fontWeight: 700 }}>Payment Methods ({methods.length})</h3>
-        <button onClick={openAdd} style={addBtnStyle}><Plus size={14} /> Add Method</button>
-      </div>
-      {showForm && (
-        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', background: 'var(--background)' }}>
-          <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>{editMethod ? 'Edit Payment Method' : 'New Payment Method'}</h4>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <SettingField label="Display Name"><input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. PhonePe UPI" style={settingInputStyle} /></SettingField>
-            <SettingField label="Type">
-              <select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))} style={settingSelectStyle}>
-                {['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'CHEQUE', 'WALLET'].map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
-            </SettingField>
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            <button onClick={save} disabled={saving} style={saveBtnStyle}>{saving ? <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Save size={14} />} Save</button>
-            <button
-              type="button"
-              onClick={() => {
-                if (editMethod) {
-                  setForm({ name: editMethod.name, type: editMethod.type })
-                } else {
-                  setForm({ name: '', type: 'CASH' })
-                }
-              }}
-              style={{ ...cancelBtnStyle, color: '#f59e0b', borderColor: 'rgba(245,158,11,0.4)' }}
-            >
-              Reset
-            </button>
-            <button onClick={() => setShowForm(false)} style={cancelBtnStyle}><X size={14} /> Cancel</button>
-          </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700 }}>Payment Methods ({methods.length})</h3>
+          <button onClick={openAdd} style={addBtnStyle}><Plus size={14} /> Add Method</button>
         </div>
-      )}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead><tr style={{ background: 'var(--background)' }}>{['Name', 'Type', 'Bills', 'Status', ''].map((h) => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
-          <tbody>
-            {methods.map((m, i) => (
-              <tr key={m.id} style={{ borderBottom: i < methods.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                <td style={tdStyle}><span style={{ fontWeight: 500 }}>{m.name}</span></td>
-                <td style={tdStyle}><span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 100, background: 'var(--border)', color: 'var(--foreground-muted)', fontWeight: 600 }}>{m.type}</span></td>
-                <td style={tdStyle}><span style={{ fontSize: 13 }}>{m._count?.bills || 0} bills</span></td>
-                <td style={tdStyle}>{m.isActive ? <span style={{ fontSize: 12, color: '#22c55e' }}>Active</span> : <span style={{ fontSize: 12, color: '#ef4444' }}>Inactive</span>}</td>
-                <td style={tdStyle}>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <button onClick={() => openEdit(m)} style={actionBtnStyle}><Edit2 size={13} /></button>
-                    <button onClick={() => remove(m.id)} style={{ ...actionBtnStyle, color: 'var(--error)' }}><Trash2 size={13} /></button>
-                  </div>
-                </td>
+        {showForm && (
+          <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', background: 'var(--background)' }}>
+            <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>{editMethod ? 'Edit Payment Method' : 'New Payment Method'}</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <SettingField label="Display Name"><input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. PhonePe UPI" style={settingInputStyle} /></SettingField>
+              <SettingField label="Type">
+                <select value={form.type} onChange={(e) => setForm((p) => ({ ...p, type: e.target.value }))} style={settingSelectStyle}>
+                  {['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'CHEQUE', 'WALLET'].map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </SettingField>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button onClick={save} disabled={saving} style={saveBtnStyle}>{saving ? <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Save size={14} />} Save</button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (editMethod) {
+                    setForm({ name: editMethod.name, type: editMethod.type })
+                  } else {
+                    setForm({ name: '', type: 'CASH' })
+                  }
+                }}
+                style={{ ...cancelBtnStyle, color: '#f59e0b', borderColor: 'rgba(245,158,11,0.4)' }}
+              >
+                Reset
+              </button>
+              <button onClick={() => setShowForm(false)} style={cancelBtnStyle}><X size={14} /> Cancel</button>
+            </div>
+          </div>
+        )}
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead><tr style={{ background: 'var(--background)' }}>{['Name', 'Type', 'Bills', 'Status', ''].map((h) => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+            <tbody>
+              {methods.map((m, i) => (
+                <tr key={m.id} style={{ borderBottom: i < methods.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <td style={tdStyle}><span style={{ fontWeight: 500 }}>{m.name}</span></td>
+                  <td style={tdStyle}><span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 100, background: 'var(--border)', color: 'var(--foreground-muted)', fontWeight: 600 }}>{m.type}</span></td>
+                  <td style={tdStyle}><span style={{ fontSize: 13 }}>{m._count?.bills || 0} bills</span></td>
+                  <td style={tdStyle}>{m.isActive ? <span style={{ fontSize: 12, color: '#22c55e' }}>Active</span> : <span style={{ fontSize: 12, color: '#ef4444' }}>Inactive</span>}</td>
+                  <td style={tdStyle}>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button onClick={() => openEdit(m)} style={actionBtnStyle}><Edit2 size={13} /></button>
+                      <button onClick={() => remove(m.id)} style={{ ...actionBtnStyle, color: 'var(--error)' }}><Trash2 size={13} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* New Payment Status Section (Read-only view) */}
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: 'var(--foreground)' }}>Payment Status</h3>
+          <p style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 2 }}>System status options for tracking expense payments</p>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ background: 'var(--background)' }}>
+                {['Name', 'System Key', 'Description'].map((h) => <th key={h} style={thStyle}>{h}</th>)}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {[
+                { name: 'Fully Paid', key: 'FULLY_PAID', desc: 'The bill has been completely settled.' },
+                { name: 'Not Paid', key: 'NOT_PAID', desc: 'No payment has been made yet.' },
+                { name: 'Partially Paid', key: 'PARTIALLY_PAID', desc: 'A partial payment has been made.' }
+              ].map((s, i, arr) => (
+                <tr key={s.key} style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <td style={tdStyle}><span style={{ fontWeight: 500 }}>{s.name}</span></td>
+                  <td style={tdStyle}><span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 100, background: 'var(--border)', color: 'var(--foreground-muted)', fontWeight: 600 }}>{s.key}</span></td>
+                  <td style={tdStyle}><span style={{ fontSize: 13, color: 'var(--foreground-muted)' }}>{s.desc}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

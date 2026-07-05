@@ -39,7 +39,7 @@ interface DashboardData {
   billStatusCounts?: {
     pending: number
     approved: number
-    rejected: number
+    rejected?: number
   }
   recentBills: Array<{
     id: string
@@ -568,16 +568,6 @@ export default function DashboardPage() {
           icon={Receipt}
           color="#22c55e"
           delay={0.30}
-          loading={statsLoading}
-        />
-        {/* 8 — Rejected Bills */}
-        <StatCard
-          title="Rejected Bills"
-          value={data?.billStatusCounts?.rejected ?? 0}
-          subtitle="Declined"
-          icon={Receipt}
-          color="#ef4444"
-          delay={0.35}
           loading={statsLoading}
         />
         {/* 9 — Top Vendor */}
