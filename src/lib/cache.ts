@@ -235,6 +235,8 @@ export async function getCachedDashboardStats(filters: {
         statusCountsGroup,
         topVendorGroup,
         topCategoryGroup,
+        totalDuesAgg,
+        duesBreakdownGroup,
       ] = await Promise.all([
         prisma.bill.count({ where: baseWhere }),
         prisma.bill.aggregate({ where: baseWhere, _sum: { amount: true } }),
@@ -245,6 +247,8 @@ export async function getCachedDashboardStats(filters: {
         prisma.bill.groupBy({ by: ['status'], _count: true }),
         prisma.bill.groupBy({ by: ['vendorId'], where: baseWhere, _sum: { amount: true }, orderBy: { _sum: { amount: 'desc' } }, take: 1 }),
         prisma.bill.groupBy({ by: ['categoryId'], where: baseWhere, _sum: { amount: true }, orderBy: { _sum: { amount: 'desc' } }, take: 1 }),
+        prisma.bill.aggregate({ where: { ...baseWhere, paymentStatus: { not: 'FULLY_PAID' } }, _sum: { remainingAmount: true } }),
+        prisma.bill.groupBy({ by: ['paymentStatus'], where: { ...baseWhere, paymentStatus: { in: ['NOT_PAID', 'PARTIALLY_PAID'] } }, _sum: { remainingAmount: true } }),
       ])
 
       const thisMonth = Number(thisMonthAgg._sum.amount || 0)
@@ -256,6 +260,17 @@ export async function getCachedDashboardStats(filters: {
         const statusKey = group.status.toLowerCase() as keyof typeof statusCounts
         if (statusKey in statusCounts) {
           statusCounts[statusKey] = group._count
+        }
+      }
+
+      const totalDues = Number(totalDuesAgg._sum.remainingAmount || 0)
+      let notPaidDues = 0
+      let partiallyPaidDues = 0
+      for (const group of duesBreakdownGroup) {
+        if (group.paymentStatus === 'NOT_PAID') {
+          notPaidDues = Number(group._sum.remainingAmount || 0)
+        } else if (group.paymentStatus === 'PARTIALLY_PAID') {
+          partiallyPaidDues = Number(group._sum.remainingAmount || 0)
         }
       }
 
@@ -281,6 +296,9 @@ export async function getCachedDashboardStats(filters: {
           topVendorAmount: Number(topVendorGroup[0]?._sum?.amount || 0),
           topCategory: topCategory?.name || null,
           topCategoryAmount: Number(topCategoryGroup[0]?._sum?.amount || 0),
+          totalDues,
+          notPaidDues,
+          partiallyPaidDues,
         },
         billStatusCounts: statusCounts,
       }

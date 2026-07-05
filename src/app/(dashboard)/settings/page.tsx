@@ -227,16 +227,16 @@ function UsersTab({ currentUserId }: { currentUserId?: string }) {
     } catch (e: unknown) { toast.error((e as Error).message || 'Failed') } finally { setSaving(false) }
   }
 
-  const deactivate = async (id: string) => {
-    if (!confirm('Deactivate this user?')) return
+  const deleteUser = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete ${name}? This cannot be undone.`)) return
     try {
       const res = await fetch(`/api/users/${id}`, { method: 'DELETE' })
       const json = await res.json()
-      if (!json.success) throw new Error(json.error || 'Failed to deactivate user')
-      toast.success('User deactivated')
+      if (!json.success) throw new Error(json.error || 'Failed to delete user')
+      toast.success('User deleted successfully')
       fetchUsers()
     } catch (e: unknown) {
-      toast.error((e as Error).message || 'Failed to deactivate user')
+      toast.error((e as Error).message || 'Failed to delete user')
     }
   }
 
@@ -316,7 +316,7 @@ function UsersTab({ currentUserId }: { currentUserId?: string }) {
                   <td style={tdStyle}>
                     <div style={{ display: 'flex', gap: 4 }}>
                       <button onClick={() => openEdit(u)} style={actionBtnStyle}><Edit2 size={13} /></button>
-                      {u.id !== currentUserId && <button onClick={() => deactivate(u.id)} style={{ ...actionBtnStyle, color: 'var(--error)' }}><Trash2 size={13} /></button>}
+                      {u.id !== currentUserId && <button onClick={() => deleteUser(u.id, u.name)} style={{ ...actionBtnStyle, color: 'var(--error)' }} title="Delete User"><Trash2 size={13} /></button>}
                     </div>
                   </td>
                 </tr>

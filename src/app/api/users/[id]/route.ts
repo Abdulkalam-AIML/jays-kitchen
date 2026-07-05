@@ -49,16 +49,42 @@ export async function DELETE(
   try {
     const user = await getAuthUser()
     if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+    if (user.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ success: false, error: 'Forbidden: Only Super Admin can delete users' }, { status: 403 })
+    }
 
     const { id } = await params
     if (id === user.userId) {
       return NextResponse.json({ success: false, error: 'Cannot delete yourself' }, { status: 400 })
     }
 
-    await prisma.user.update({ where: { id }, data: { isActive: false } })
-    return NextResponse.json({ success: true, message: 'User deactivated' })
+    const targetUser = await prisma.user.findUnique({ where: { id } })
+    if (!targetUser) {
+      return NextResponse.json({ success: false, error: 'User not found' }, { status: 404 })
+    }
+
+    if (targetUser.role === 'SUPER_ADMIN') {
+      const superAdminCount = await prisma.user.count({ where: { role: 'SUPER_ADMIN' } })
+      if (superAdminCount <= 1) {
+        return NextResponse.json({ success: false, error: 'Cannot delete the last remaining Super Admin' }, { status: 400 })
+      }
+    }
+
+    await prisma.$transaction([
+      prisma.auditLog.deleteMany({ where: { userId: id } }),
+      prisma.bill.updateMany({
+        where: { paidById: id },
+        data: {
+          paidBy: targetUser.name,
+          paidById: null
+        }
+      }),
+      prisma.user.delete({ where: { id } })
+    ])
+
+    return NextResponse.json({ success: true, message: 'User deleted successfully' })
   } catch (error) {
+    console.error('[USER DELETE ERROR]', error)
     return NextResponse.json({ success: false, error: 'Failed to delete user' }, { status: 500 })
   }
 }

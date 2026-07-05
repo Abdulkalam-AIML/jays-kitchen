@@ -29,6 +29,9 @@ interface Bill {
   categoryId: string
   paymentMethodId: string
   paidById?: string | null
+  paymentStatus?: 'FULLY_PAID' | 'NOT_PAID' | 'PARTIALLY_PAID' | null
+  amountPaid?: number | string | null
+  remainingAmount?: number | string | null
   images: Array<{ id: string; url: string; thumbnailUrl?: string | null }>
 }
 
@@ -68,6 +71,7 @@ export default function BillsPage() {
   const [vendorId, setVendorId] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [paymentMethodId, setPaymentMethodId] = useState('')
+  const [paymentStatus, setPaymentStatus] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [page, setPage] = useState(1)
@@ -85,6 +89,7 @@ export default function BillsPage() {
       ...(vendorId && { vendorId }),
       ...(categoryId && { categoryId }),
       ...(paymentMethodId && { paymentMethodId }),
+      ...(paymentStatus && { paymentStatus }),
       ...(startDate && { startDate }),
       ...(endDate && { endDate }),
     }).toString()
@@ -121,7 +126,7 @@ export default function BillsPage() {
       setLoading(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search, vendorId, categoryId, paymentMethodId, startDate, endDate])
+  }, [page, search, vendorId, categoryId, paymentMethodId, paymentStatus, startDate, endDate])
 
   useEffect(() => {
     fetchBills()
@@ -255,11 +260,11 @@ export default function BillsPage() {
 
   const clearFilters = () => {
     setSearch(''); setVendorId(''); setCategoryId('')
-    setPaymentMethodId(''); setStartDate(''); setEndDate('')
+    setPaymentMethodId(''); setPaymentStatus(''); setStartDate(''); setEndDate('')
     setPage(1)
   }
 
-  const hasFilters = search || vendorId || categoryId || paymentMethodId || startDate || endDate
+  const hasFilters = search || vendorId || categoryId || paymentMethodId || paymentStatus || startDate || endDate
 
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto' }}>
@@ -441,6 +446,12 @@ export default function BillsPage() {
             <option value="">All Methods</option>
             {paymentMethods.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </FilterSelect>
+          <FilterSelect label="Payment Status" value={paymentStatus} onChange={(v) => { setPaymentStatus(v); setPage(1) }}>
+            <option value="">All Statuses</option>
+            <option value="FULLY_PAID">Fully Paid</option>
+            <option value="NOT_PAID">Not Paid</option>
+            <option value="PARTIALLY_PAID">Partially Paid</option>
+          </FilterSelect>
           <div>
             <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: 'var(--foreground-muted)', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.04em' }}>From</label>
             <input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setPage(1) }} style={filterInputStyle} />
@@ -476,7 +487,7 @@ export default function BillsPage() {
                     style={{ cursor: 'pointer' }}
                   />
                 </th>
-                {['Bill #', 'Date', 'Vendor', 'Category', 'Payment', 'Amount', 'Paid By', 'Status', 'Images', ''].map((h) => (
+                {['Bill #', 'Date', 'Vendor', 'Category', 'Payment', 'Amount', 'Payment Status', 'Pending Amount', 'Paid By', 'Status', 'Images', ''].map((h) => (
                   <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -488,7 +499,7 @@ export default function BillsPage() {
                     <td style={{ padding: '14px', width: 40 }}>
                       <div className="skeleton" style={{ height: 14, borderRadius: 6, width: 20 }} />
                     </td>
-                    {Array.from({ length: 10 }).map((_, j) => (
+                    {Array.from({ length: 12 }).map((_, j) => (
                       <td key={j} style={{ padding: '14px' }}>
                         <div className="skeleton" style={{ height: 14, borderRadius: 6, width: j === 5 ? 60 : j === 0 ? 80 : '70%' }} />
                       </td>
@@ -497,7 +508,7 @@ export default function BillsPage() {
                 ))
               ) : !bills?.data?.length ? (
                 <tr>
-                  <td colSpan={11} style={{ padding: '60px', textAlign: 'center', color: 'var(--foreground-muted)' }}>
+                  <td colSpan={13} style={{ padding: '60px', textAlign: 'center', color: 'var(--foreground-muted)' }}>
                     <div style={{ fontSize: 40, marginBottom: 12 }}>🧾</div>
                     <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No bills found</p>
                     <p style={{ fontSize: 13 }}>Add your first bill or adjust the filters</p>
@@ -538,6 +549,23 @@ export default function BillsPage() {
                     </td>
                     <td style={{ padding: '12px 14px', fontSize: 14, fontWeight: 800, color: 'var(--foreground)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
                       {formatCurrency(Number(bill.amount), settings?.currency)}
+                    </td>
+                    <td style={{ padding: '12px 14px' }}>
+                      {bill.paymentStatus === 'FULLY_PAID' && (
+                        <span style={{ display: 'inline-flex', padding: '3px 8px', borderRadius: 100, fontSize: 11, fontWeight: 600, background: 'rgba(34,197,94,0.12)', color: '#22c55e', whiteSpace: 'nowrap' }}>Fully Paid</span>
+                      )}
+                      {bill.paymentStatus === 'NOT_PAID' && (
+                        <span style={{ display: 'inline-flex', padding: '3px 8px', borderRadius: 100, fontSize: 11, fontWeight: 600, background: 'rgba(239,68,68,0.12)', color: '#ef4444', whiteSpace: 'nowrap' }}>Not Paid</span>
+                      )}
+                      {bill.paymentStatus === 'PARTIALLY_PAID' && (
+                        <span style={{ display: 'inline-flex', padding: '3px 8px', borderRadius: 100, fontSize: 11, fontWeight: 600, background: 'rgba(245,158,11,0.12)', color: '#d97706', whiteSpace: 'nowrap' }}>Partially Paid</span>
+                      )}
+                      {!bill.paymentStatus && (
+                        <span style={{ display: 'inline-flex', padding: '3px 8px', borderRadius: 100, fontSize: 11, fontWeight: 600, background: 'rgba(239,68,68,0.12)', color: '#ef4444', whiteSpace: 'nowrap' }}>Not Paid</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '12px 14px', fontSize: 13, fontWeight: 600, color: Number(bill.remainingAmount || 0) > 0 ? '#d97706' : 'var(--foreground-muted)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                      {formatCurrency(Number(bill.remainingAmount || 0), settings?.currency)}
                     </td>
                     <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--foreground-muted)', whiteSpace: 'nowrap' }}>{bill.paidBy?.name ?? bill.submitterName ?? 'Public'}</td>
                     <td style={{ padding: '12px 14px' }}>

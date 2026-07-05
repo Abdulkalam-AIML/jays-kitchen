@@ -135,6 +135,7 @@ model Bill {
   @@index([paymentMethodId])
   @@index([paidById])
   @@index([status])
+  @@index([paymentStatus])
   @@index([createdAt])
 }
 

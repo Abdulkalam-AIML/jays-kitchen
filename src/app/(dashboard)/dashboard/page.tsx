@@ -35,6 +35,9 @@ interface DashboardData {
     topVendorAmount: number
     topCategory: string | null
     topCategoryAmount: number
+    totalDues?: number
+    notPaidDues?: number
+    partiallyPaidDues?: number
   }
   billStatusCounts?: {
     pending: number
@@ -568,6 +571,18 @@ export default function DashboardPage() {
           icon={Receipt}
           color="#22c55e"
           delay={0.30}
+          loading={statsLoading}
+        />
+        {/* 8 — Total Dues */}
+        <StatCard
+          title="Total Dues"
+          value={stats?.totalDues || 0}
+          subtitle={`Not Paid: ${formatCurrency(stats?.notPaidDues || 0, settings?.currency)} | Partial: ${formatCurrency(stats?.partiallyPaidDues || 0, settings?.currency)}`}
+          icon={DollarSign}
+          color="#d97706"
+          delay={0.35}
+          isCurrency={true}
+          currencyCode={settings?.currency}
           loading={statsLoading}
         />
         {/* 9 — Top Vendor */}

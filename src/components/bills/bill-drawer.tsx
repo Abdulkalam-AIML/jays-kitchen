@@ -114,10 +114,16 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
 
       if (bill?.id) {
         try {
-          const imgRes = await fetch(`/api/bills/${bill.id}/images`).then((r) => r.json())
+          const [imgRes, billRes] = await Promise.all([
+            fetch(`/api/bills/${bill.id}/images`).then((r) => r.json()),
+            fetch(`/api/bills/${bill.id}`).then((r) => r.json()),
+          ])
           if (imgRes.success) setImages(imgRes.data)
+          if (billRes.success && billRes.data) {
+            setValue('remarks', billRes.data.remarks || '')
+          }
         } catch (err) {
-          console.error('Failed to load bill images:', err)
+          console.error('Failed to load bill details:', err)
         }
       }
     }

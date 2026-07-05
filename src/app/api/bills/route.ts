@@ -10,21 +10,16 @@ const BILL_SELECT = {
   billNumber: true,
   billDate: true,
   amount: true,
-  remarks: true,
   status: true,
   paymentStatus: true,
   amountPaid: true,
   remainingAmount: true,
-  submittedBy: true,
   submitterName: true,
-  paidBy: true,
-  vendorId: true,
-  categoryId: true,
-  paymentMethodId: true,
   vendor: { select: { name: true } },
   category: { select: { name: true, color: true } },
   paymentMethod: { select: { name: true, type: true } },
-  paidByUser: { select: { id: true, name: true, email: true, role: true, avatar: true } },
+  paidByUser: { select: { name: true } },
+  paidBy: true,
   images: { select: { id: true } },
 }
 
@@ -58,6 +53,7 @@ export async function GET(request: NextRequest) {
     const paymentMethodId = searchParams.get('paymentMethodId') || ''
     const paidById = searchParams.get('paidById') || ''
     const statusFilter = searchParams.get('status') || ''
+    const paymentStatus = searchParams.get('paymentStatus') || ''
     const startDate = searchParams.get('startDate') || ''
     const endDate = searchParams.get('endDate') || ''
     const sortBy = searchParams.get('sortBy') || 'billDate'
@@ -78,6 +74,7 @@ export async function GET(request: NextRequest) {
     if (paymentMethodId) where.paymentMethodId = paymentMethodId
     if (paidById) where.paidById = paidById
     if (statusFilter) where.status = statusFilter
+    if (paymentStatus) where.paymentStatus = paymentStatus
 
     if (startDate || endDate) {
       where.billDate = {}
