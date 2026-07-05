@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getCachedActiveVendors, invalidateVendors } from '@/lib/cache'
 
 export async function GET() {
   try {
-    const vendors = await prisma.vendor.findMany({
-      where: { isActive: true },
-      select: { id: true, name: true, phone: true },
-      orderBy: { name: 'asc' },
-    })
-    return NextResponse.json({ success: true, data: vendors })
+    const vendors = await getCachedActiveVendors()
+    return NextResponse.json(
+      { success: true, data: vendors },
+      { headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=120' } }
+    )
   } catch (error) {
     console.error('[PUBLIC VENDORS ERROR]', error)
     return NextResponse.json({ success: false, error: 'Failed to fetch vendors' }, { status: 500 })
@@ -29,6 +29,9 @@ export async function POST(request: Request) {
       data: { name: name.trim() },
       select: { id: true, name: true },
     })
+
+    invalidateVendors()
+
     return NextResponse.json({ success: true, data: vendor }, { status: 201 })
   } catch (error) {
     console.error('[PUBLIC VENDOR CREATE ERROR]', error)

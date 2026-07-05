@@ -14,8 +14,8 @@ export async function PATCH(
 
     const { id } = await params
 
-    // Allow users to edit their own profile, admin can edit anyone
-    if (user.role !== 'ADMIN' && user.userId !== id) {
+    // Allow users to edit their own profile, admin/super admin can edit anyone
+    if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN' && user.userId !== id) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     }
 
@@ -25,9 +25,9 @@ export async function PATCH(
     const updateData: Record<string, unknown> = {}
     if (validated.name) updateData.name = validated.name
     if (validated.email) updateData.email = validated.email
-    if (validated.role && user.role === 'ADMIN') updateData.role = validated.role
+    if (validated.role && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN')) updateData.role = validated.role
     if (validated.password) updateData.password = await bcrypt.hash(validated.password, 12)
-    if (body.isActive !== undefined && user.role === 'ADMIN') updateData.isActive = body.isActive
+    if (body.isActive !== undefined && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN')) updateData.isActive = body.isActive
 
     const updated = await prisma.user.update({
       where: { id },
@@ -49,7 +49,7 @@ export async function DELETE(
   try {
     const user = await getAuthUser()
     if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    if (user.role !== 'ADMIN') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+    if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
 
     const { id } = await params
     if (id === user.userId) {

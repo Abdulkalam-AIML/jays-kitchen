@@ -15,7 +15,9 @@ export async function DELETE(
     const image = await prisma.billImage.findFirst({ where: { id: imageId, billId: id } })
     if (!image) return NextResponse.json({ success: false, error: 'Image not found' }, { status: 404 })
 
-    await deleteFromStorage(image.publicId)
+    if (!image.publicId.startsWith('local_') && !image.publicId.startsWith('public_')) {
+      await deleteFromStorage(image.publicId)
+    }
     await prisma.billImage.delete({ where: { id: imageId } })
 
     return NextResponse.json({ success: true, message: 'Image deleted' })

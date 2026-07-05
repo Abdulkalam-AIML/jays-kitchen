@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/auth'
 import { billStatusSchema } from '@/lib/validations'
 import { createAuditLog } from '@/lib/audit'
+import { invalidateDashboard } from '@/lib/cache'
 
 export async function PATCH(
   request: NextRequest,
@@ -38,6 +39,8 @@ export async function PATCH(
       entityId: id,
       details: { billNumber: bill.billNumber, previousStatus: bill.status, newStatus: status },
     })
+
+    invalidateDashboard()
 
     return NextResponse.json({ success: true, data: updated })
   } catch (error) {

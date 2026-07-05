@@ -167,14 +167,7 @@ export default function AdminLoginPage() {
               </div>
             </form>
 
-            {/* Credentials hint */}
-            <div style={{ marginTop: 20, padding: '12px 14px', background: 'var(--primary-light)', borderRadius: 10, border: '1px solid rgba(249,115,22,0.15)' }}>
-              <p style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 700, marginBottom: 4 }}>Default Credentials</p>
-              <p style={{ fontSize: 11, color: 'var(--foreground-muted)', lineHeight: 1.7 }}>
-                Super Admin: <code style={{ fontFamily: 'monospace', fontSize: 11 }}>superadmin@jayskitchen.com</code> / <code style={{ fontFamily: 'monospace', fontSize: 11 }}>SuperAdmin@123</code><br />
-                Admin: <code style={{ fontFamily: 'monospace', fontSize: 11 }}>admin@jayskitchen.com</code> / <code style={{ fontFamily: 'monospace', fontSize: 11 }}>Admin@123</code>
-              </p>
-            </div>
+
           </div>
 
           <div style={{ textAlign: 'center', marginTop: 20 }}>

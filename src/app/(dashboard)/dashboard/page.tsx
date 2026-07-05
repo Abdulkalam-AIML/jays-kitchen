@@ -1,20 +1,25 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import {
-  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-} from 'recharts'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import dynamic from 'next/dynamic'
 import {
   TrendingUp, TrendingDown, Receipt, DollarSign, Calendar,
-  Users, RefreshCw, Plus, ArrowRight, Filter, X,
+  Users, RefreshCw, Plus, Filter, X,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
-import { formatCurrency, formatCompact, formatDate, getPercentageChange, PAYMENT_METHOD_COLORS, PAYMENT_METHOD_ICONS } from '@/lib/format'
+import { formatCurrency } from '@/lib/format'
 import BillDrawer from '@/components/bills/bill-drawer'
 import { useAuth } from '@/providers/auth-provider'
 import { getCurrencySymbol } from '@/lib/currency'
+
+const DashboardCharts = dynamic(() => import('@/components/dashboard/dashboard-charts'), {
+  ssr: false,
+})
+
+const RecentActivity = dynamic(() => import('@/components/dashboard/recent-activity'), {
+  ssr: false,
+})
 
 // ===================== TYPES =====================
 interface DashboardData {
@@ -56,10 +61,9 @@ interface DashboardData {
   monthlyData: Array<{ month: string; amount: number }>
 }
 
-// ===================== STAT CARD =====================
 // ===================== ANIMATED NUMBER =====================
 function AnimatedNumber({ value, currencyCode }: { value: number; currencyCode?: string }) {
-  const [displayValue, setDisplayValue] = useState(0)
+  const [displayValue, setDisplayValue] = useState(value)
 
   useEffect(() => {
     let startTimestamp: number | null = null
@@ -98,6 +102,7 @@ function StatCard({
   delay = 0,
   isCurrency = false,
   currencyCode,
+  loading = false,
 }: {
   title: string
   value: string | number
@@ -107,6 +112,7 @@ function StatCard({
   delay?: number
   isCurrency?: boolean
   currencyCode?: string
+  loading?: boolean
 }) {
   return (
     <motion.div
@@ -159,53 +165,41 @@ function StatCard({
       </div>
 
       <div>
-        <div
-          style={{
-            fontSize: 26,
-            fontWeight: 800,
-            color: 'var(--foreground)',
-            letterSpacing: '-0.03em',
-            lineHeight: 1.1,
-            fontVariantNumeric: 'tabular-nums',
-          }}
-        >
-          {isCurrency && typeof value === 'number' ? (
-            <AnimatedNumber value={value} currencyCode={currencyCode} />
-          ) : (
-            value
-          )}
-        </div>
-        <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 4, fontWeight: 500 }}>
-          {title}
-        </div>
-        {subtitle && (
-          <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 3 }}>
-            {subtitle}
-          </div>
+        {loading ? (
+          <>
+            <div className="skeleton animate-pulse" style={{ width: '80%', height: 28, borderRadius: 6, marginBottom: 8, background: 'var(--border)' }} />
+            <div className="skeleton animate-pulse" style={{ width: '50%', height: 14, borderRadius: 4, background: 'var(--border)' }} />
+          </>
+        ) : (
+          <>
+            <div
+              style={{
+                fontSize: 26,
+                fontWeight: 800,
+                color: 'var(--foreground)',
+                letterSpacing: '-0.03em',
+                lineHeight: 1.1,
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {isCurrency && typeof value === 'number' ? (
+                <AnimatedNumber value={value} currencyCode={currencyCode} />
+              ) : (
+                value
+              )}
+            </div>
+            <div style={{ fontSize: 13, color: 'var(--foreground-muted)', marginTop: 4, fontWeight: 500 }}>
+              {title}
+            </div>
+            {subtitle && (
+              <div style={{ fontSize: 11, color: 'var(--foreground-muted)', marginTop: 3 }}>
+                {subtitle}
+              </div>
+            )}
+          </>
         )}
       </div>
     </motion.div>
-  )
-}
-
-// ===================== CUSTOM TOOLTIP =====================
-function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number }>; label?: string }) {
-  if (!active || !payload?.length) return null
-  return (
-    <div
-      style={{
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
-        borderRadius: 10,
-        padding: '10px 14px',
-        boxShadow: 'var(--shadow-lg)',
-      }}
-    >
-      <p style={{ fontSize: 12, color: 'var(--foreground-muted)', marginBottom: 4 }}>{label}</p>
-      <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)' }}>
-        {formatCurrency(payload[0].value)}
-      </p>
-    </div>
   )
 }
 
@@ -214,7 +208,8 @@ export default function DashboardPage() {
   const { settings } = useAuth()
   const currencySymbol = getCurrencySymbol(settings?.currency)
   const [data, setData] = useState<DashboardData | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [statsLoading, setStatsLoading] = useState(true)
+  const [detailsLoading, setDetailsLoading] = useState(true)
   const [addBillOpen, setAddBillOpen] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -222,23 +217,97 @@ export default function DashboardPage() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [filtersVisible, setFiltersVisible] = useState(false)
+  const lastFetchedQsRef = useRef<string | null>(null)
 
   const fetchDashboard = useCallback(async (params: Record<string, string> = {}) => {
-    try {
-      const qs = new URLSearchParams()
-      if (params.startDate) qs.set('startDate', params.startDate)
-      if (params.endDate) qs.set('endDate', params.endDate)
+    const baseQs = new URLSearchParams()
+    if (params.startDate) baseQs.set('startDate', params.startDate)
+    if (params.endDate) baseQs.set('endDate', params.endDate)
+    const qsStr = baseQs.toString()
 
-      const res = await fetch(`/api/dashboard?${qs}`)
-      if (!res.ok) throw new Error('Failed')
-      const json = await res.json()
-      setData(json.data)
-    } catch {
-      toast.error('Failed to load dashboard')
-    } finally {
-      setLoading(false)
+    if (lastFetchedQsRef.current === qsStr && !params.force) return
+    lastFetchedQsRef.current = qsStr
+
+    setStatsLoading(true)
+    setDetailsLoading(true)
+
+    // 1. Fetch Stats (fast route)
+    const fetchStats = async () => {
+      const maxRetries = 3
+      let attempt = 0
+      let success = false
+
+      while (attempt < maxRetries && !success) {
+        try {
+          const qs = new URLSearchParams(baseQs)
+          qs.set('type', 'stats')
+          const res = await fetch(`/api/dashboard?${qs}`)
+          if (!res.ok) throw new Error('Failed to fetch stats')
+          const json = await res.json()
+          if (!json.success) throw new Error(json.error || 'Failed')
+          
+          setData((prev) => ({
+            ...prev,
+            stats: json.data.stats,
+            billStatusCounts: json.data.billStatusCounts,
+          } as DashboardData))
+          success = true
+        } catch (err) {
+          attempt++
+          console.warn(`Stats fetch attempt ${attempt} failed:`, err)
+          if (attempt < maxRetries) {
+            await new Promise((resolve) => setTimeout(resolve, attempt * 500))
+          }
+        }
+      }
+      if (!success) {
+        toast.error('Failed to load dashboard metrics. Please refresh.')
+      }
+      setStatsLoading(false)
+    }
+
+    // 2. Fetch Details (charts and activity)
+    const fetchDetails = async () => {
+      const maxRetries = 3
+      let attempt = 0
+      let success = false
+
+      while (attempt < maxRetries && !success) {
+        try {
+          const qs = new URLSearchParams(baseQs)
+          qs.set('type', 'details')
+          const res = await fetch(`/api/dashboard?${qs}`)
+          if (!res.ok) throw new Error('Failed to fetch details')
+          const json = await res.json()
+          if (!json.success) throw new Error(json.error || 'Failed')
+
+          setData((prev) => ({
+            ...prev,
+            recentBills: json.data.recentBills,
+            categoryChartData: json.data.categoryChartData,
+            vendorChartData: json.data.vendorChartData,
+            paymentChartData: json.data.paymentChartData,
+            monthlyData: json.data.monthlyData,
+          } as DashboardData))
+          success = true
+        } catch (err) {
+          attempt++
+          console.warn(`Details fetch attempt ${attempt} failed:`, err)
+          if (attempt < maxRetries) {
+            await new Promise((resolve) => setTimeout(resolve, attempt * 500))
+          }
+        }
+      }
+      if (!success) {
+        toast.error('Failed to load charts and transaction logs. Please refresh.')
+      }
+      setDetailsLoading(false)
       setRefreshing(false)
     }
+
+    fetchStats().then(() => {
+      setTimeout(fetchDetails, 100)
+    })
   }, [])
 
   useEffect(() => {
@@ -259,11 +328,7 @@ export default function DashboardPage() {
 
   const handleRefresh = () => {
     setRefreshing(true)
-    fetchDashboard({ startDate, endDate })
-  }
-
-  if (loading) {
-    return <DashboardSkeleton />
+    fetchDashboard({ startDate, endDate, force: 'true' })
   }
 
   const stats = data?.stats
@@ -435,6 +500,7 @@ export default function DashboardPage() {
           icon={Receipt}
           color="#f97316"
           delay={0}
+          loading={statsLoading}
         />
         {/* 2 — Grand Total */}
         <StatCard
@@ -446,6 +512,7 @@ export default function DashboardPage() {
           delay={0.05}
           isCurrency={true}
           currencyCode={settings?.currency}
+          loading={statsLoading}
         />
         {/* 3 — Today */}
         <StatCard
@@ -457,6 +524,7 @@ export default function DashboardPage() {
           delay={0.10}
           isCurrency={true}
           currencyCode={settings?.currency}
+          loading={statsLoading}
         />
         {/* 4 — Weekly */}
         <StatCard
@@ -468,6 +536,7 @@ export default function DashboardPage() {
           delay={0.15}
           isCurrency={true}
           currencyCode={settings?.currency}
+          loading={statsLoading}
         />
         {/* 5 — Monthly */}
         <StatCard
@@ -479,6 +548,7 @@ export default function DashboardPage() {
           delay={0.20}
           isCurrency={true}
           currencyCode={settings?.currency}
+          loading={statsLoading}
         />
         {/* 6 — Pending Bills */}
         <StatCard
@@ -488,6 +558,7 @@ export default function DashboardPage() {
           icon={Receipt}
           color="#f59e0b"
           delay={0.25}
+          loading={statsLoading}
         />
         {/* 7 — Approved Bills */}
         <StatCard
@@ -497,6 +568,7 @@ export default function DashboardPage() {
           icon={Receipt}
           color="#22c55e"
           delay={0.30}
+          loading={statsLoading}
         />
         {/* 8 — Rejected Bills */}
         <StatCard
@@ -506,6 +578,7 @@ export default function DashboardPage() {
           icon={Receipt}
           color="#ef4444"
           delay={0.35}
+          loading={statsLoading}
         />
         {/* 9 — Top Vendor */}
         <StatCard
@@ -515,6 +588,7 @@ export default function DashboardPage() {
           icon={Users}
           color="#10b981"
           delay={0.40}
+          loading={statsLoading}
         />
         {/* 10 — Top Category */}
         <StatCard
@@ -524,250 +598,26 @@ export default function DashboardPage() {
           icon={Users}
           color="#3b82f6"
           delay={0.45}
+          loading={statsLoading}
         />
       </div>
 
-
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap: 16,
-          marginBottom: 20,
-        }}
-      >
-        {/* Monthly Area Chart */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-          style={{
-            background: 'var(--card)',
-            border: '1px solid var(--card-border)',
-            borderRadius: 20,
-            padding: '20px 20px 12px',
-            gridColumn: 'span 2',
-          }}
-        >
-          <div style={{ marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', marginBottom: 2 }}>
-              Monthly Expenses
-            </h3>
-            <p style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Last 12 months trend</p>
-          </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={data?.monthlyData || []} margin={{ top: 4, right: 10, bottom: 0, left: 10 }}>
-              <defs>
-                <linearGradient id="colorAmt" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis dataKey="month" tick={{ fontSize: 11, fill: 'var(--foreground-muted)' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: 'var(--foreground-muted)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${currencySymbol}${(v / 1000).toFixed(0)}K`} />
-              <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="amount" stroke="#f97316" strokeWidth={2.5} fill="url(#colorAmt)" dot={{ fill: '#f97316', r: 3, strokeWidth: 0 }} activeDot={{ r: 6, fill: '#f97316' }} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </motion.div>
-
-        {/* Category Pie */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 20, padding: '20px 20px 12px' }}
-        >
-          <div style={{ marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', marginBottom: 2 }}>By Category</h3>
-            <p style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Spending distribution</p>
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie
-                data={data?.categoryChartData || []}
-                cx="50%"
-                cy="50%"
-                innerRadius={55}
-                outerRadius={80}
-                paddingAngle={3}
-                dataKey="value"
-              >
-                {(data?.categoryChartData || []).map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(v) => formatCurrency(Number(v as number || 0), settings?.currency)} />
-              <Legend formatter={(value) => <span style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>{value}</span>} />
-            </PieChart>
-          </ResponsiveContainer>
-        </motion.div>
+      {/* Dynamic Charts (Lazy Loaded) */}
+      <div style={{ marginBottom: 20 }}>
+        <DashboardCharts
+          data={data}
+          loading={detailsLoading}
+          settings={settings}
+          currencySymbol={currencySymbol}
+        />
       </div>
 
-      {/* ===== CHARTS ROW 2 ===== */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-          gap: 16,
-          marginBottom: 20,
-        }}
-      >
-        {/* Vendor Bar */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 20, padding: '20px 20px 12px' }}
-        >
-          <div style={{ marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', marginBottom: 2 }}>Top Vendors</h3>
-            <p style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Highest spending vendors</p>
-          </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={data?.vendorChartData?.slice(0, 6) || []} layout="vertical" margin={{ left: 0, right: 30, top: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--foreground-muted)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${currencySymbol}${(v / 1000).toFixed(0)}K`} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: 'var(--foreground-muted)' }} axisLine={false} tickLine={false} width={80} />
-              <Tooltip formatter={(v) => formatCurrency(Number(v as number || 0), settings?.currency)} />
-              <Bar dataKey="value" fill="#f97316" radius={[0, 6, 6, 0]} barSize={14} />
-            </BarChart>
-          </ResponsiveContainer>
-        </motion.div>
-
-        {/* Payment Method Pie */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 20, padding: '20px 20px 12px' }}
-        >
-          <div style={{ marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', marginBottom: 2 }}>Payment Methods</h3>
-            <p style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>How expenses are paid</p>
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <PieChart>
-              <Pie data={data?.paymentChartData || []} cx="50%" cy="50%" outerRadius={80} paddingAngle={3} dataKey="value">
-                {(data?.paymentChartData || []).map((entry, i) => (
-                  <Cell key={i} fill={PAYMENT_METHOD_COLORS[entry.type] || '#94a3b8'} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(v) => formatCurrency(Number(v as number || 0), settings?.currency)} />
-              <Legend formatter={(value) => <span style={{ fontSize: 11, color: 'var(--foreground-muted)' }}>{value}</span>} />
-            </PieChart>
-          </ResponsiveContainer>
-        </motion.div>
-      </div>
-
-      {/* ===== RECENT BILLS ===== */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.45 }}
-        style={{ background: 'var(--card)', border: '1px solid var(--card-border)', borderRadius: 20, overflow: 'hidden' }}
-      >
-        <div
-          style={{
-            padding: '20px 24px',
-            borderBottom: '1px solid var(--border)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--foreground)', marginBottom: 2 }}>Recent Bills</h3>
-            <p style={{ fontSize: 12, color: 'var(--foreground-muted)' }}>Latest 10 transactions</p>
-          </div>
-          <a
-            href="/bills"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              color: 'var(--primary)',
-              fontSize: 13,
-              fontWeight: 600,
-              textDecoration: 'none',
-            }}
-          >
-            View All <ArrowRight size={14} />
-          </a>
-        </div>
-
-        <div style={{ overflowX: 'auto' }}>
-          {!data?.recentBills?.length ? (
-            <div style={{ padding: '48px', textAlign: 'center', color: 'var(--foreground-muted)' }}>
-              <Receipt size={40} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
-              <p style={{ fontSize: 14 }}>No bills found</p>
-            </div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: 'var(--background)', borderBottom: '1px solid var(--border)' }}>
-                  {['Bill #', 'Date', 'Vendor', 'Category', 'Payment', 'Amount', 'By'].map((h) => (
-                    <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {data.recentBills.map((bill, i) => (
-                  <tr
-                    key={bill.id}
-                    style={{
-                      borderBottom: i < data.recentBills.length - 1 ? '1px solid var(--border)' : 'none',
-                      transition: 'background 0.1s ease',
-                    }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--card-hover)' }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
-                  >
-                    <td style={{ padding: '13px 16px', fontSize: 13, fontWeight: 600, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
-                      {bill.billNumber}
-                    </td>
-                    <td style={{ padding: '13px 16px', fontSize: 13, color: 'var(--foreground-muted)', whiteSpace: 'nowrap' }}>
-                      {formatDate(bill.billDate, 'short')}
-                    </td>
-                    <td style={{ padding: '13px 16px', fontSize: 13, color: 'var(--foreground)', fontWeight: 500, whiteSpace: 'nowrap', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {bill.vendor.name}
-                    </td>
-                    <td style={{ padding: '13px 16px' }}>
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 5,
-                          padding: '3px 10px',
-                          borderRadius: 100,
-                          fontSize: 12,
-                          fontWeight: 500,
-                          background: `${bill.category.color}18`,
-                          color: bill.category.color,
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {bill.category.name}
-                      </span>
-                    </td>
-                    <td style={{ padding: '13px 16px', fontSize: 12, color: 'var(--foreground-muted)' }}>
-                      {PAYMENT_METHOD_ICONS[bill.paymentMethod.type] || ''} {bill.paymentMethod.name}
-                    </td>
-                    <td style={{ padding: '13px 16px', fontSize: 14, fontWeight: 700, color: 'var(--foreground)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                      {formatCurrency(Number(bill.amount), settings?.currency)}
-                    </td>
-                    <td style={{ padding: '13px 16px', fontSize: 13, color: 'var(--foreground-muted)', whiteSpace: 'nowrap' }}>
-                      {bill.paidBy?.name ?? bill.submitterName ?? 'Public'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </motion.div>
+      {/* Recent Bills (Lazy Loaded) */}
+      <RecentActivity
+        bills={data?.recentBills}
+        loading={detailsLoading}
+        settings={settings}
+      />
 
       {/* Add Bill Drawer */}
       {addBillOpen && (
@@ -776,31 +626,10 @@ export default function DashboardPage() {
           onClose={() => setAddBillOpen(false)}
           onSaved={() => {
             setAddBillOpen(false)
-            fetchDashboard({ startDate, endDate })
+            fetchDashboard({ startDate, endDate, force: 'true' })
           }}
         />
       )}
-    </div>
-  )
-}
-
-// ===================== SKELETON =====================
-function DashboardSkeleton() {
-  return (
-    <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 24 }}>
-        {[1, 2, 3, 4].map((i) => (
-          <div key={i} style={{ background: 'var(--card)', borderRadius: 20, padding: 24, border: '1px solid var(--border)' }}>
-            <div className="skeleton" style={{ width: 44, height: 44, borderRadius: 12, marginBottom: 16 }} />
-            <div className="skeleton" style={{ width: '70%', height: 30, borderRadius: 8, marginBottom: 8 }} />
-            <div className="skeleton" style={{ width: '50%', height: 14, borderRadius: 6 }} />
-          </div>
-        ))}
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
-        <div className="skeleton" style={{ height: 280, borderRadius: 20 }} />
-        <div className="skeleton" style={{ height: 280, borderRadius: 20 }} />
-      </div>
     </div>
   )
 }

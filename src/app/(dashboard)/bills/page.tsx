@@ -3,12 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Plus, Search, Filter, Download, Edit2, Trash2,
-  Eye, X, ChevronLeft, ChevronRight, Image as ImageIcon, RefreshCw,
+  Eye, X, ChevronLeft, ChevronRight, RefreshCw,
   DollarSign,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
-import { formatCurrency, formatDate, PAYMENT_METHOD_ICONS, PAYMENT_METHOD_COLORS } from '@/lib/format'
+import { formatCurrency, formatDate, PAYMENT_METHOD_ICONS } from '@/lib/format'
 import { useAuth } from '@/providers/auth-provider'
 import BillDrawer from '@/components/bills/bill-drawer'
 
@@ -44,7 +44,6 @@ interface BillsResponse {
 interface Vendor { id: string; name: string }
 interface Category { id: string; name: string; color: string }
 interface PaymentMethod { id: string; name: string; type: string }
-interface AppUser { id: string; name: string }
 
 export default function BillsPage() {
   const { settings } = useAuth()
@@ -56,6 +55,9 @@ export default function BillsPage() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const lastFetchedQsRef = useRef<string | null>(null)
+  const [imageLoading, setImageLoading] = useState<string | null>(null)
 
   // Grand Total animated state
   const [displayTotal, setDisplayTotal] = useState(0)
@@ -75,20 +77,24 @@ export default function BillsPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
 
-  const fetchBills = useCallback(async () => {
-    setLoading(true)
-    try {
-      const qs = new URLSearchParams({
-        page: String(page),
-        limit: String(limit),
-        ...(search && { search }),
-        ...(vendorId && { vendorId }),
-        ...(categoryId && { categoryId }),
-        ...(paymentMethodId && { paymentMethodId }),
-        ...(startDate && { startDate }),
-        ...(endDate && { endDate }),
-      })
+  const fetchBills = useCallback(async (force = false) => {
+    const qs = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+      ...(search && { search }),
+      ...(vendorId && { vendorId }),
+      ...(categoryId && { categoryId }),
+      ...(paymentMethodId && { paymentMethodId }),
+      ...(startDate && { startDate }),
+      ...(endDate && { endDate }),
+    }).toString()
 
+    if (lastFetchedQsRef.current === qs && !force) return
+    lastFetchedQsRef.current = qs
+
+    setLoading(true)
+    setSelectedIds([])
+    try {
       const res = await fetch(`/api/bills?${qs}`)
       const json = await res.json()
       if (json.success) {
@@ -121,8 +127,11 @@ export default function BillsPage() {
     fetchBills()
   }, [fetchBills])
 
-  useEffect(() => {
-    const fetchFilters = async () => {
+  const [filtersLoaded, setFiltersLoaded] = useState(false)
+
+  const fetchFilters = useCallback(async () => {
+    if (filtersLoaded) return
+    try {
       const [v, c, p] = await Promise.all([
         fetch('/api/vendors').then((r) => r.json()),
         fetch('/api/categories').then((r) => r.json()),
@@ -131,21 +140,68 @@ export default function BillsPage() {
       if (v.success) setVendors(v.data)
       if (c.success) setCategories(c.data)
       if (p.success) setPaymentMethods(p.data)
+      setFiltersLoaded(true)
+    } catch (e) {
+      console.error('Failed to load filters:', e)
     }
-    fetchFilters()
-  }, [])
+  }, [filtersLoaded])
+
+  useEffect(() => {
+    if (filtersOpen) {
+      fetchFilters()
+    }
+  }, [filtersOpen, fetchFilters])
+
+  const handleViewImage = async (billId: string) => {
+    setImageLoading(billId)
+    try {
+      const res = await fetch(`/api/bills/${billId}/images`)
+      const json = await res.json()
+      if (json.success && json.data.length > 0) {
+        setViewImage(json.data[0].url)
+      } else {
+        toast.error('No image found for this bill')
+      }
+    } catch {
+      toast.error('Failed to load image')
+    } finally {
+      setImageLoading(null)
+    }
+  }
 
   const handleDelete = async (id: string) => {
     setDeleting(true)
     try {
-      const res = await fetch(`/api/bills/${id}`, { method: 'DELETE' })
-      const json = await res.json()
-      if (!json.success) throw new Error(json.error)
-      toast.success('Bill deleted')
+      if (id === 'bulk') {
+        const results = await Promise.all(
+          selectedIds.map(sid =>
+            fetch(`/api/bills/${sid}`, { method: 'DELETE' })
+              .then(r => r.json())
+              .catch(() => ({ success: false, error: 'Network error' }))
+          )
+        )
+        const failedCount = results.filter(r => !r.success).length
+        const successCount = results.length - failedCount
+        if (failedCount > 0) {
+          if (successCount > 0) {
+            toast.success(`Deleted ${successCount} bills. ${failedCount} failed.`)
+          } else {
+            toast.error('Failed to delete selected bills')
+          }
+        } else {
+          toast.success(`Deleted ${selectedIds.length} bills`)
+        }
+        setSelectedIds([])
+      } else {
+        const res = await fetch(`/api/bills/${id}`, { method: 'DELETE' })
+        const json = await res.json()
+        if (!json.success) throw new Error(json.error)
+        toast.success('Bill deleted')
+      }
       setDeleteConfirm(null)
-      fetchBills()
+      fetchBills(true)
     } catch {
-      toast.error('Failed to delete bill')
+      toast.error('Failed to delete bills')
     } finally {
       setDeleting(false)
     }
@@ -161,7 +217,7 @@ export default function BillsPage() {
       const json = await res.json()
       if (!json.success) throw new Error(json.error)
       toast.success(`Bill ${status.toLowerCase()}`)
-      fetchBills()
+      fetchBills(true)
     } catch {
       toast.error('Failed to update bill status')
     }
@@ -214,11 +270,25 @@ export default function BillsPage() {
             Bills {bills && <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--foreground-muted)' }}>({bills.total} total)</span>}
           </h2>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+          {selectedIds.length > 0 && (
+            <button
+              onClick={() => setDeleteConfirm('bulk')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 16px',
+                borderRadius: 10, border: 'none',
+                background: 'var(--error)',
+                color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                fontFamily: 'inherit', boxShadow: '0 2px 8px rgba(239,68,68,0.3)',
+              }}
+            >
+              <Trash2 size={14} /> Delete Selected ({selectedIds.length})
+            </button>
+          )}
           <button onClick={exportCSV} style={ghostBtnStyle}>
             <Download size={14} /> Export CSV
           </button>
-          <button onClick={fetchBills} style={ghostBtnStyle}>
+          <button onClick={() => fetchBills(true)} style={ghostBtnStyle}>
             <RefreshCw size={14} />
           </button>
           <button
@@ -392,6 +462,20 @@ export default function BillsPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'var(--background)', borderBottom: '1px solid var(--border)' }}>
+                <th style={{ padding: '11px 14px', width: 40, textAlign: 'left' }}>
+                  <input
+                    type="checkbox"
+                    checked={!!(bills?.data?.length) && selectedIds.length === (bills?.data?.length ?? 0)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedIds(bills?.data?.map((b) => b.id) || [])
+                      } else {
+                        setSelectedIds([])
+                      }
+                    }}
+                    style={{ cursor: 'pointer' }}
+                  />
+                </th>
                 {['Bill #', 'Date', 'Vendor', 'Category', 'Payment', 'Amount', 'Paid By', 'Status', 'Images', ''].map((h) => (
                   <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
@@ -401,6 +485,9 @@ export default function BillsPage() {
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '14px', width: 40 }}>
+                      <div className="skeleton" style={{ height: 14, borderRadius: 6, width: 20 }} />
+                    </td>
                     {Array.from({ length: 10 }).map((_, j) => (
                       <td key={j} style={{ padding: '14px' }}>
                         <div className="skeleton" style={{ height: 14, borderRadius: 6, width: j === 5 ? 60 : j === 0 ? 80 : '70%' }} />
@@ -410,7 +497,7 @@ export default function BillsPage() {
                 ))
               ) : !bills?.data?.length ? (
                 <tr>
-                  <td colSpan={10} style={{ padding: '60px', textAlign: 'center', color: 'var(--foreground-muted)' }}>
+                  <td colSpan={11} style={{ padding: '60px', textAlign: 'center', color: 'var(--foreground-muted)' }}>
                     <div style={{ fontSize: 40, marginBottom: 12 }}>🧾</div>
                     <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No bills found</p>
                     <p style={{ fontSize: 13 }}>Add your first bill or adjust the filters</p>
@@ -424,6 +511,20 @@ export default function BillsPage() {
                     onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--card-hover)' }}
                     onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
                   >
+                    <td style={{ padding: '12px 14px', width: 40 }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(bill.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedIds((prev) => [...prev, bill.id])
+                          } else {
+                            setSelectedIds((prev) => prev.filter((id) => id !== bill.id))
+                          }
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      />
+                    </td>
                     <td style={{ padding: '12px 14px', fontSize: 13, fontWeight: 700, color: 'var(--primary)', whiteSpace: 'nowrap' }}>{bill.billNumber}</td>
                     <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--foreground-muted)', whiteSpace: 'nowrap' }}>{formatDate(bill.billDate, 'short')}</td>
                     <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--foreground)', fontWeight: 500, maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{bill.vendor.name}</td>
@@ -445,10 +546,15 @@ export default function BillsPage() {
                     <td style={{ padding: '12px 14px' }}>
                       {bill.images.length > 0 ? (
                         <button
-                          onClick={() => setViewImage(bill.images[0].url)}
+                          onClick={() => handleViewImage(bill.id)}
+                          disabled={imageLoading !== null}
                           style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--foreground-muted)', fontSize: 12 }}
                         >
-                          <ImageIcon size={13} /> {bill.images.length}
+                          {imageLoading === bill.id ? (
+                            <RefreshCw size={13} style={{ animation: 'spin 0.8s linear infinite' }} />
+                          ) : (
+                            <Eye size={13} />
+                          )} {bill.images.length}
                         </button>
                       ) : (
                         <span style={{ color: 'var(--border)', fontSize: 12 }}>—</span>
@@ -457,18 +563,11 @@ export default function BillsPage() {
                     <td style={{ padding: '12px 8px' }}>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'nowrap' }}>
                         {bill.status === 'PENDING' && (
-                           <>
-                             <button
-                               onClick={() => handleStatusChange(bill.id, 'APPROVED')}
-                               title="Approve"
-                               style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(34,197,94,0.3)', background: 'rgba(34,197,94,0.08)', cursor: 'pointer', color: '#22c55e', fontSize: 11, fontWeight: 600, fontFamily: 'inherit', whiteSpace: 'nowrap' }}
-                             >✓ Approve</button>
-                             <button
-                               onClick={() => handleStatusChange(bill.id, 'REJECTED')}
-                               title="Reject"
-                               style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.08)', cursor: 'pointer', color: '#ef4444', fontSize: 11, fontWeight: 600, fontFamily: 'inherit', whiteSpace: 'nowrap' }}
-                             >✗ Reject</button>
-                           </>
+                           <button
+                             onClick={() => handleStatusChange(bill.id, 'APPROVED')}
+                             title="Approve"
+                             style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(34,197,94,0.3)', background: 'rgba(34,197,94,0.08)', cursor: 'pointer', color: '#22c55e', fontSize: 11, fontWeight: 600, fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+                           >✓ Approve</button>
                          )}
                          {bill.status !== 'PENDING' && (
                            <button
@@ -543,7 +642,7 @@ export default function BillsPage() {
         <BillDrawer
           open={drawerOpen}
           onClose={() => { setDrawerOpen(false); setEditBill(null) }}
-          onSaved={() => { setDrawerOpen(false); setEditBill(null); fetchBills() }}
+          onSaved={() => { setDrawerOpen(false); setEditBill(null); fetchBills(true) }}
           bill={editBill as Parameters<typeof BillDrawer>[0]['bill']}
         />
       )}
@@ -572,7 +671,7 @@ export default function BillsPage() {
       {viewImage && (
         <>
           <div onClick={() => setViewImage(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-out' }}>
-            <img src={viewImage} alt="Bill" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12 }} />
+            <img src={viewImage} alt="Bill" loading="lazy" style={{ maxWidth: '90vw', maxHeight: '90vh', objectFit: 'contain', borderRadius: 12 }} />
             <button onClick={() => setViewImage(null)} style={{ position: 'absolute', top: 20, right: 20, width: 40, height: 40, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
               <X size={18} />
             </button>

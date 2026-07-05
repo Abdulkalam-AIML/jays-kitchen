@@ -460,23 +460,7 @@ export default function LoginPage() {
               </button>
             </form>
 
-            {/* Default credentials hint */}
-            <div
-              style={{
-                marginTop: 24,
-                padding: '12px 16px',
-                background: 'var(--primary-light)',
-                borderRadius: 10,
-                border: '1px solid rgba(249,115,22,0.15)',
-              }}
-            >
-              <p style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600, marginBottom: 4 }}>
-                Demo Credentials
-              </p>
-              <p style={{ fontSize: 12, color: 'var(--foreground-muted)', lineHeight: 1.6 }}>
-                Admin: <code style={{ fontFamily: 'monospace' }}>admin@jayskitchen.com</code> / <code style={{ fontFamily: 'monospace' }}>Admin@123</code>
-              </p>
-            </div>
+
           </div>
 
           <p

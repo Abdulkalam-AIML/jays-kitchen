@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { X, Plus, Save, Loader2, Calendar, Hash, Building2, Tag, CreditCard, User, FileText, Upload, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -14,7 +14,6 @@ import { getCurrencySymbol } from '@/lib/currency'
 interface Vendor { id: string; name: string; isActive: boolean }
 interface Category { id: string; name: string; color: string; icon?: string | null; isActive: boolean }
 interface PaymentMethod { id: string; name: string; type: string; isActive: boolean }
-interface AppUser { id: string; name: string; role: string }
 interface BillImage { id: string; url: string; thumbnailUrl?: string | null }
 interface Bill {
   id: string
@@ -25,7 +24,7 @@ interface Bill {
   vendorId: string
   categoryId: string
   paymentMethodId: string
-  paidById: string
+  paidBy?: { name: string } | null
   images: BillImage[]
 }
 
@@ -43,18 +42,15 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
-  const [users, setUsers] = useState<AppUser[]>([])
   const [saving, setSaving] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
   const [images, setImages] = useState<BillImage[]>(bill?.images || [])
-  const [newVendorName, setNewVendorName] = useState('')
-  const [addingVendor, setAddingVendor] = useState(false)
-  const [showAddVendor, setShowAddVendor] = useState(false)
+  // For new bills: hold selected file before bill ID exists
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
 
   const {
     register,
     handleSubmit,
-    control,
     formState: { errors },
     reset,
     watch,
@@ -67,31 +63,54 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
           vendorId: bill.vendorId,
           categoryId: bill.categoryId,
           paymentMethodId: bill.paymentMethodId,
-          paidById: bill.paidById,
+          paidBy: bill.paidBy?.name || '',
           amount: Number(bill.amount),
           remarks: bill.remarks || '',
         }
       : {
           billDate: toInputDate(new Date()),
-          billNumber: `JK-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`,
+          billNumber: '',
+          paidBy: '',
         },
   })
 
   useEffect(() => {
     const fetchData = async () => {
-      const [v, c, p, u] = await Promise.all([
-        fetch('/api/vendors?activeOnly=true').then((r) => r.json()),
+      const [v, c, p] = await Promise.all([
+        fetch('/api/vendors').then((r) => r.json()),
         fetch('/api/categories').then((r) => r.json()),
         fetch('/api/payment-methods').then((r) => r.json()),
-        fetch('/api/users').then((r) => r.json()),
       ])
-      if (v.success) setVendors(v.data.filter((x: Vendor) => x.isActive))
-      if (c.success) setCategories(c.data.filter((x: Category) => x.isActive))
-      if (p.success) setPaymentMethods(p.data.filter((x: PaymentMethod) => x.isActive))
-      if (u.success) setUsers(u.data)
+      if (v.success) setVendors(v.data.filter((x: Vendor) => x.isActive || x.id === bill?.vendorId))
+      if (c.success) setCategories(c.data.filter((x: Category) => x.isActive || x.id === bill?.categoryId))
+      if (p.success) setPaymentMethods(p.data.filter((x: PaymentMethod) => x.isActive || x.id === bill?.paymentMethodId))
+
+      if (bill?.id) {
+        try {
+          const imgRes = await fetch(`/api/bills/${bill.id}/images`).then((r) => r.json())
+          if (imgRes.success) setImages(imgRes.data)
+        } catch (err) {
+          console.error('Failed to load bill images:', err)
+        }
+      }
     }
     fetchData()
-  }, [])
+  }, [bill])
+
+  // Upload image to an existing bill
+  const uploadImageToBill = async (billId: string, file: File): Promise<BillImage | null> => {
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch(`/api/bills/${billId}/images`, { method: 'POST', body: fd })
+      const json = await res.json()
+      if (!json.success) throw new Error(json.error)
+      return json.data as BillImage
+    } catch (err: unknown) {
+      toast.error((err as Error).message || 'Image upload failed')
+      return null
+    }
+  }
 
   const onSubmit = async (data: BillInput) => {
     setSaving(true)
@@ -108,6 +127,15 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
       const json = await res.json()
       if (!json.success) throw new Error(json.error)
 
+      // If creating a new bill with a pending image, upload it now
+      if (!isEdit && pendingFile && json.data?.id) {
+        const uploaded = await uploadImageToBill(json.data.id, pendingFile)
+        if (uploaded) {
+          setImages([uploaded])
+        }
+        setPendingFile(null)
+      }
+
       toast.success(isEdit ? 'Bill updated!' : 'Bill added!')
       onSaved()
     } catch (err: unknown) {
@@ -117,23 +145,31 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
     }
   }
 
+  // Image upload for EDIT mode (bill already exists)
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !isEdit) return
+    if (!file) return
 
-    setUploadingImage(true)
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res = await fetch(`/api/bills/${bill!.id}/images`, { method: 'POST', body: fd })
-      const json = await res.json()
-      if (!json.success) throw new Error(json.error)
-      setImages((prev) => [...prev, json.data])
-      toast.success('Image uploaded!')
-    } catch (err: unknown) {
-      toast.error((err as Error).message || 'Upload failed')
-    } finally {
-      setUploadingImage(false)
+    if (isEdit) {
+      // Upload immediately
+      setUploadingImage(true)
+      try {
+        const fd = new FormData()
+        fd.append('file', file)
+        const res = await fetch(`/api/bills/${bill!.id}/images`, { method: 'POST', body: fd })
+        const json = await res.json()
+        if (!json.success) throw new Error(json.error)
+        setImages((prev) => [...prev, json.data])
+        toast.success('Image uploaded!')
+      } catch (err: unknown) {
+        toast.error((err as Error).message || 'Upload failed')
+      } finally {
+        setUploadingImage(false)
+        e.target.value = ''
+      }
+    } else {
+      // Store file; will upload after bill is created
+      setPendingFile(file)
       e.target.value = ''
     }
   }
@@ -146,28 +182,6 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
       toast.success('Image deleted')
     } catch {
       toast.error('Failed to delete image')
-    }
-  }
-
-  const handleAddVendor = async () => {
-    if (!newVendorName.trim()) return
-    setAddingVendor(true)
-    try {
-      const res = await fetch('/api/vendors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newVendorName.trim() }),
-      })
-      const json = await res.json()
-      if (!json.success) throw new Error(json.error)
-      setVendors((prev) => [...prev, json.data].sort((a, b) => a.name.localeCompare(b.name)))
-      setNewVendorName('')
-      setShowAddVendor(false)
-      toast.success(`Vendor "${json.data.name}" added!`)
-    } catch (err: unknown) {
-      toast.error((err as Error).message || 'Failed to add vendor')
-    } finally {
-      setAddingVendor(false)
     }
   }
 
@@ -222,7 +236,7 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
               {isEdit ? 'Edit Bill' : 'Add New Bill'}
             </h3>
             <p style={{ fontSize: 12, color: 'var(--foreground-muted)', marginTop: 2 }}>
-              {isEdit ? `Editing ${bill?.billNumber}` : "Fill in the expense details below"}
+              {isEdit ? `Editing ${bill?.billNumber}` : 'Fill in the expense details below'}
             </p>
           </div>
           <button
@@ -271,94 +285,41 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
         >
           {/* Bill Number + Date */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <FieldGroup label="Bill Number" error={errors.billNumber?.message} icon={<Hash size={14} />}>
-              <input {...register('billNumber')} placeholder="JK-2025-0001" className="drawer-input" />
+            <FieldGroup label="Bill Number" error={errors.billNumber?.message} icon={<Hash size={14} />} id="billNumber">
+              <input id="billNumber" {...register('billNumber')} placeholder="JK-2025-0001" className="drawer-input" />
             </FieldGroup>
-            <FieldGroup label="Bill Date" error={errors.billDate?.message} icon={<Calendar size={14} />}>
-              <input {...register('billDate')} type="date" className="drawer-input" />
+            <FieldGroup label="Bill Date" error={errors.billDate?.message} icon={<Calendar size={14} />} id="billDate">
+              <input id="billDate" {...register('billDate')} type="date" className="drawer-input" />
             </FieldGroup>
           </div>
 
           {/* Vendor */}
-          <FieldGroup label="Vendor" error={errors.vendorId?.message} icon={<Building2 size={14} />}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <select {...register('vendorId')} className="drawer-select" style={{ flex: 1 }}>
-                <option value="">Select vendor…</option>
-                {vendors.map((v) => (
-                  <option key={v.id} value={v.id}>{v.name}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => setShowAddVendor(!showAddVendor)}
-                title="Add new vendor"
-                style={{
-                  padding: '0 10px',
-                  borderRadius: 8,
-                  border: '1px solid var(--border)',
-                  background: showAddVendor ? 'var(--primary)' : 'var(--background)',
-                  color: showAddVendor ? 'white' : 'var(--foreground-muted)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  flexShrink: 0,
-                  transition: 'all 0.15s',
-                }}
-              >
-                <Plus size={15} />
-              </button>
-            </div>
-
-            {showAddVendor && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <input
-                  value={newVendorName}
-                  onChange={(e) => setNewVendorName(e.target.value)}
-                  placeholder="New vendor name…"
-                  className="drawer-input"
-                  style={{ flex: 1 }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddVendor() } }}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddVendor}
-                  disabled={addingVendor}
-                  style={{
-                    padding: '0 12px',
-                    borderRadius: 8,
-                    border: 'none',
-                    background: 'var(--primary)',
-                    color: 'white',
-                    cursor: 'pointer',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    fontFamily: 'inherit',
-                    flexShrink: 0,
-                  }}
-                >
-                  {addingVendor ? <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : 'Add'}
-                </button>
-              </div>
-            )}
+          <FieldGroup label="Vendor" error={errors.vendorId?.message} icon={<Building2 size={14} />} id="vendorId">
+            <select id="vendorId" {...register('vendorId')} className="drawer-select">
+              <option value="">Select vendor…</option>
+              {vendors.map((v) => (
+                <option key={v.id} value={v.id}>{v.name}</option>
+              ))}
+            </select>
           </FieldGroup>
 
           {/* Amount */}
-          <FieldGroup label={`Amount (${currencySymbol})`} error={errors.amount?.message} icon={<span style={{ fontSize: 13, fontWeight: 700 }}>{currencySymbol}</span>}>
-            <input {...register('amount', { valueAsNumber: true })} type="number" step="0.01" min="0" placeholder="0.00" className="drawer-input" />
+          <FieldGroup label={`Amount (${currencySymbol})`} error={errors.amount?.message} icon={<span style={{ fontSize: 13, fontWeight: 700 }}>{currencySymbol}</span>} id="amount">
+            <input id="amount" {...register('amount', { valueAsNumber: true })} type="number" step="0.01" min="0" placeholder="0.00" className="drawer-input" />
           </FieldGroup>
 
           {/* Category + Payment Method */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <FieldGroup label="Category" error={errors.categoryId?.message} icon={<Tag size={14} />}>
-              <select {...register('categoryId')} className="drawer-select">
+            <FieldGroup label="Category" error={errors.categoryId?.message} icon={<Tag size={14} />} id="categoryId">
+              <select id="categoryId" {...register('categoryId')} className="drawer-select">
                 <option value="">Select…</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
                 ))}
               </select>
             </FieldGroup>
-            <FieldGroup label="Payment Method" error={errors.paymentMethodId?.message} icon={<CreditCard size={14} />}>
-              <select {...register('paymentMethodId')} className="drawer-select">
+            <FieldGroup label="Payment Method" error={errors.paymentMethodId?.message} icon={<CreditCard size={14} />} id="paymentMethodId">
+              <select id="paymentMethodId" {...register('paymentMethodId')} className="drawer-select">
                 <option value="">Select…</option>
                 {paymentMethods.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
@@ -368,18 +329,20 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
           </div>
 
           {/* Paid By */}
-          <FieldGroup label="Paid By" error={errors.paidById?.message} icon={<User size={14} />}>
-            <select {...register('paidById')} className="drawer-select">
-              <option value="">Select user…</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>{u.name} ({u.role})</option>
-              ))}
-            </select>
+          <FieldGroup label="Paid By" error={errors.paidBy?.message} icon={<User size={14} />} id="paidBy">
+            <input
+              id="paidBy"
+              type="text"
+              {...register('paidBy')}
+              placeholder="Name of person who paid..."
+              className="drawer-input"
+            />
           </FieldGroup>
 
           {/* Remarks */}
-          <FieldGroup label="Remarks" icon={<FileText size={14} />}>
+          <FieldGroup label="Remarks" icon={<FileText size={14} />} id="remarks">
             <textarea
+              id="remarks"
               {...register('remarks')}
               placeholder="Optional notes about this bill…"
               rows={2}
@@ -388,97 +351,130 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
             />
           </FieldGroup>
 
-          {/* Images (edit mode only) */}
-          {isEdit && (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Upload size={14} color="var(--foreground-muted)" />
-                  Bill Images
-                </label>
-                <label
-                  style={{
-                    padding: '5px 12px',
-                    borderRadius: 8,
-                    border: '1px dashed var(--border)',
-                    fontSize: 12,
-                    fontWeight: 500,
-                    color: 'var(--foreground-muted)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 5,
-                    transition: 'all 0.15s',
-                  }}
-                >
-                  {uploadingImage ? <Loader2 size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Plus size={13} />}
-                  {uploadingImage ? 'Uploading…' : 'Add Photo'}
-                  <input type="file" accept="image/*,application/pdf" style={{ display: 'none' }} onChange={handleImageUpload} disabled={uploadingImage} />
-                </label>
-              </div>
-
-              {images.length > 0 ? (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-                  {images.map((img) => (
-                    <div
-                      key={img.id}
-                      style={{
-                        position: 'relative',
-                        borderRadius: 10,
-                        overflow: 'hidden',
-                        border: '1px solid var(--border)',
-                        aspectRatio: '1',
-                        background: 'var(--background)',
-                        cursor: 'pointer',
-                      }}
-                      onClick={() => window.open(img.url, '_blank')}
-                    >
-                      <Image
-                        src={img.thumbnailUrl || img.url}
-                        alt="Bill"
-                        fill
-                        style={{ objectFit: 'cover' }}
-                      />
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id) }}
-                        style={{
-                          position: 'absolute',
-                          top: 4,
-                          right: 4,
-                          width: 22,
-                          height: 22,
-                          borderRadius: 6,
-                          background: 'rgba(239,68,68,0.9)',
-                          border: 'none',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'white',
-                        }}
-                      >
-                        <Trash2 size={11} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div
-                  style={{
-                    border: '1px dashed var(--border)',
-                    borderRadius: 10,
-                    padding: 20,
-                    textAlign: 'center',
-                    color: 'var(--foreground-muted)',
-                    fontSize: 13,
-                  }}
-                >
-                  No images attached
-                </div>
-              )}
+          {/* Bill Images — shown for both CREATE and EDIT */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Upload size={14} color="var(--foreground-muted)" />
+                Bill Image
+                <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--foreground-muted)' }}>(optional)</span>
+              </label>
+              <label
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: 8,
+                  border: '1px dashed var(--border)',
+                  fontSize: 12,
+                  fontWeight: 500,
+                  color: 'var(--foreground-muted)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  transition: 'all 0.15s',
+                }}
+              >
+                {uploadingImage ? <Loader2 size={13} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Plus size={13} />}
+                {uploadingImage ? 'Uploading…' : 'Add Photo'}
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  style={{ display: 'none' }}
+                  onChange={handleImageUpload}
+                  disabled={uploadingImage}
+                />
+              </label>
             </div>
-          )}
+
+            {/* Show pending file indicator for new bills */}
+            {!isEdit && pendingFile && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  border: '1px solid rgba(249,115,22,0.4)',
+                  background: 'rgba(249,115,22,0.06)',
+                  marginBottom: 8,
+                }}
+              >
+                <span style={{ fontSize: 13, color: 'var(--primary)', fontWeight: 500 }}>
+                  📎 {pendingFile.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPendingFile(null)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--foreground-muted)', display: 'flex', padding: 2 }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
+            {/* Show uploaded images for edit mode */}
+            {isEdit && images.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                {images.map((img) => (
+                  <div
+                    key={img.id}
+                    style={{
+                      position: 'relative',
+                      borderRadius: 10,
+                      overflow: 'hidden',
+                      border: '1px solid var(--border)',
+                      aspectRatio: '1',
+                      background: 'var(--background)',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => window.open(img.url, '_blank')}
+                  >
+                    <img
+                      src={img.thumbnailUrl || img.url}
+                      alt="Bill"
+                      loading="lazy"
+                      style={{ objectFit: 'cover', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id) }}
+                      style={{
+                        position: 'absolute',
+                        top: 4,
+                        right: 4,
+                        width: 22,
+                        height: 22,
+                        borderRadius: 6,
+                        background: 'rgba(239,68,68,0.9)',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                      }}
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : isEdit ? (
+              <div
+                style={{
+                  border: '1px dashed var(--border)',
+                  borderRadius: 10,
+                  padding: 20,
+                  textAlign: 'center',
+                  color: 'var(--foreground-muted)',
+                  fontSize: 13,
+                }}
+              >
+                No images attached
+              </div>
+            ) : null}
+          </div>
         </form>
 
         {/* Footer */}
@@ -519,11 +515,12 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
                 vendorId: '',
                 categoryId: '',
                 paymentMethodId: '',
-                paidById: '',
+                paidBy: '',
                 amount: undefined,
                 remarks: '',
               })
               setImages([])
+              setPendingFile(null)
             }}
             style={{
               flex: 1,
@@ -542,8 +539,7 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
             ↺ Reset
           </button>
           <button
-            type="submit"
-            form="bill-form"
+            type="button"
             onClick={handleSubmit(onSubmit)}
             disabled={saving}
             style={{
@@ -619,16 +615,19 @@ function FieldGroup({
   label,
   error,
   icon,
+  id,
   children,
 }: {
   label: string
   error?: string
   icon?: React.ReactNode
+  id?: string
   children: React.ReactNode
 }) {
   return (
     <div>
       <label
+        htmlFor={id}
         style={{
           display: 'flex',
           alignItems: 'center',

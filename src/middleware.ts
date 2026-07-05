@@ -53,17 +53,20 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // Super Admin only paths — block regular Admin
+  // Super Admin only paths — block regular Admin except when accessing their own user
   const SUPER_ADMIN_ONLY_API = ['/api/users']
   if (
     SUPER_ADMIN_ONLY_API.some((p) => pathname.startsWith(p)) &&
     user.role !== 'SUPER_ADMIN'
   ) {
-    if (pathname.startsWith('/api/')) {
-      return NextResponse.json(
-        { success: false, error: 'Forbidden: Super Admin access required' },
-        { status: 403 }
-      )
+    const isSelfAccess = pathname === `/api/users/${user.userId}`
+    if (!isSelfAccess) {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json(
+          { success: false, error: 'Forbidden: Super Admin access required' },
+          { status: 403 }
+        )
+      }
     }
   }
 

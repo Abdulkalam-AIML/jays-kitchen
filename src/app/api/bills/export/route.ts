@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         vendor: { select: { name: true } },
         category: { select: { name: true, color: true } },
         paymentMethod: { select: { name: true, type: true } },
-        paidBy: { select: { name: true } },
+        paidByUser: { select: { name: true } },
       },
       orderBy: { billDate: 'desc' },
     })
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
         b.vendor.name,
         b.category.name,
         b.paymentMethod.name,
-        b.paidBy?.name ?? 'Public',
+        (b.paidBy || b.paidByUser?.name) ?? b.submitterName ?? 'Public',
         Number(b.amount).toFixed(2),
         b.remarks || '',
       ])
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
         vendor: b.vendor.name,
         category: b.category.name,
         paymentMethod: b.paymentMethod.name,
-        paidBy: b.paidBy?.name ?? 'Public',
+        paidBy: (b.paidBy || b.paidByUser?.name) ?? b.submitterName ?? 'Public',
         amount: Number(b.amount),
         remarks: b.remarks || '',
       })),

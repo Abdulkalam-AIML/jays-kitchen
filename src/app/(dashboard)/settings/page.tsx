@@ -144,8 +144,9 @@ function RestaurantTab() {
           ['Currency', 'currency', 'text', 'USD'],
         ] as [string, keyof typeof form, string, string][]).map(([label, field, type, placeholder]) => (
           <div key={field} style={field === 'address' ? { gridColumn: 'span 2' } : {}}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', marginBottom: 6 }}>{label}</label>
+            <label htmlFor={field} style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', marginBottom: 6 }}>{label}</label>
             <input
+              id={field}
               type={type}
               value={form[field]}
               onChange={(e) => setForm((p) => ({ ...p, [field]: e.target.value }))}
@@ -228,9 +229,15 @@ function UsersTab({ currentUserId }: { currentUserId?: string }) {
 
   const deactivate = async (id: string) => {
     if (!confirm('Deactivate this user?')) return
-    await fetch(`/api/users/${id}`, { method: 'DELETE' })
-    toast.success('User deactivated')
-    fetchUsers()
+    try {
+      const res = await fetch(`/api/users/${id}`, { method: 'DELETE' })
+      const json = await res.json()
+      if (!json.success) throw new Error(json.error || 'Failed to deactivate user')
+      toast.success('User deactivated')
+      fetchUsers()
+    } catch (e: unknown) {
+      toast.error((e as Error).message || 'Failed to deactivate user')
+    }
   }
 
   return (
@@ -304,7 +311,7 @@ function UsersTab({ currentUserId }: { currentUserId?: string }) {
                     </div>
                   </td>
                   <td style={tdStyle}><span style={{ fontSize: 13, color: 'var(--foreground-muted)' }}>{u.email}</span></td>
-                  <td style={tdStyle}><span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 100, background: u.role === 'ADMIN' ? 'var(--primary-light)' : 'var(--border)', color: u.role === 'ADMIN' ? 'var(--primary)' : 'var(--foreground-muted)', fontWeight: 600 }}>{u.role}</span></td>
+                  <td style={tdStyle}><span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 100, background: (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN') ? 'var(--primary-light)' : 'var(--border)', color: (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN') ? 'var(--primary)' : 'var(--foreground-muted)', fontWeight: 600 }}>{u.role}</span></td>
                   <td style={tdStyle}>{u.isActive ? <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#22c55e' }}><CheckCircle2 size={14} />Active</span> : <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#ef4444' }}><XCircle size={14} />Inactive</span>}</td>
                   <td style={tdStyle}>
                     <div style={{ display: 'flex', gap: 4 }}>
@@ -352,9 +359,15 @@ function VendorsTab() {
 
   const remove = async (id: string) => {
     if (!confirm('Delete/deactivate this vendor?')) return
-    await fetch(`/api/vendors/${id}`, { method: 'DELETE' })
-    toast.success('Vendor removed')
-    fetchVendors()
+    try {
+      const res = await fetch(`/api/vendors/${id}`, { method: 'DELETE' })
+      const j = await res.json()
+      if (!j.success) throw new Error(j.error)
+      toast.success('Vendor removed')
+      fetchVendors()
+    } catch (e: unknown) {
+      toast.error((e as Error).message || 'Failed to delete vendor')
+    }
   }
 
   return (
@@ -445,9 +458,15 @@ function CategoriesTab() {
 
   const remove = async (id: string) => {
     if (!confirm('Delete this category?')) return
-    await fetch(`/api/categories/${id}`, { method: 'DELETE' })
-    fetchCats()
-    toast.success('Category removed')
+    try {
+      const res = await fetch(`/api/categories/${id}`, { method: 'DELETE' })
+      const j = await res.json()
+      if (!j.success) throw new Error(j.error)
+      toast.success('Category removed')
+      fetchCats()
+    } catch (e: unknown) {
+      toast.error((e as Error).message || 'Failed to delete category')
+    }
   }
 
   return (
@@ -511,19 +530,25 @@ function CategoriesTab() {
 function PaymentsTab() {
   const [methods, setMethods] = useState<PaymentMethod[]>([])
   const [showForm, setShowForm] = useState(false)
+  const [editMethod, setEditMethod] = useState<PaymentMethod | null>(null)
   const [form, setForm] = useState({ name: '', type: 'CASH' })
   const [saving, setSaving] = useState(false)
 
   const fetchMethods = () => fetch('/api/payment-methods').then((r) => r.json()).then((j) => { if (j.success) setMethods(j.data) })
   useEffect(() => { fetchMethods() }, [])
 
+  const openAdd = () => { setEditMethod(null); setForm({ name: '', type: 'CASH' }); setShowForm(true) }
+  const openEdit = (m: PaymentMethod) => { setEditMethod(m); setForm({ name: m.name, type: m.type }); setShowForm(true) }
+
   const save = async () => {
     setSaving(true)
     try {
-      const res = await fetch('/api/payment-methods', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+      const url = editMethod ? `/api/payment-methods/${editMethod.id}` : '/api/payment-methods'
+      const method = editMethod ? 'PATCH' : 'POST'
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
       const j = await res.json()
       if (!j.success) throw new Error(j.error)
-      toast.success('Payment method added!')
+      toast.success(editMethod ? 'Payment method updated!' : 'Payment method added!')
       setShowForm(false)
       fetchMethods()
     } catch (e: unknown) { toast.error((e as Error).message || 'Failed') } finally { setSaving(false) }
@@ -531,19 +556,26 @@ function PaymentsTab() {
 
   const remove = async (id: string) => {
     if (!confirm('Remove this payment method?')) return
-    await fetch(`/api/payment-methods/${id}`, { method: 'DELETE' })
-    fetchMethods()
-    toast.success('Removed')
+    try {
+      const res = await fetch(`/api/payment-methods/${id}`, { method: 'DELETE' })
+      const j = await res.json()
+      if (!j.success) throw new Error(j.error)
+      toast.success('Removed')
+      fetchMethods()
+    } catch (e: unknown) {
+      toast.error((e as Error).message || 'Failed to delete payment method')
+    }
   }
 
   return (
     <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
       <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h3 style={{ fontSize: 16, fontWeight: 700 }}>Payment Methods ({methods.length})</h3>
-        <button onClick={() => setShowForm(!showForm)} style={addBtnStyle}><Plus size={14} /> Add Method</button>
+        <button onClick={openAdd} style={addBtnStyle}><Plus size={14} /> Add Method</button>
       </div>
       {showForm && (
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', background: 'var(--background)' }}>
+          <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>{editMethod ? 'Edit Payment Method' : 'New Payment Method'}</h4>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <SettingField label="Display Name"><input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. PhonePe UPI" style={settingInputStyle} /></SettingField>
             <SettingField label="Type">
@@ -553,10 +585,16 @@ function PaymentsTab() {
             </SettingField>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            <button onClick={save} disabled={saving} style={saveBtnStyle}><Save size={14} /> Save</button>
+            <button onClick={save} disabled={saving} style={saveBtnStyle}>{saving ? <Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Save size={14} />} Save</button>
             <button
               type="button"
-              onClick={() => setForm({ name: '', type: 'CASH' })}
+              onClick={() => {
+                if (editMethod) {
+                  setForm({ name: editMethod.name, type: editMethod.type })
+                } else {
+                  setForm({ name: '', type: 'CASH' })
+                }
+              }}
               style={{ ...cancelBtnStyle, color: '#f59e0b', borderColor: 'rgba(245,158,11,0.4)' }}
             >
               Reset
@@ -567,14 +605,20 @@ function PaymentsTab() {
       )}
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead><tr style={{ background: 'var(--background)' }}>{['Name', 'Type', 'Bills', ''].map((h) => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
+          <thead><tr style={{ background: 'var(--background)' }}>{['Name', 'Type', 'Bills', 'Status', ''].map((h) => <th key={h} style={thStyle}>{h}</th>)}</tr></thead>
           <tbody>
             {methods.map((m, i) => (
               <tr key={m.id} style={{ borderBottom: i < methods.length - 1 ? '1px solid var(--border)' : 'none' }}>
                 <td style={tdStyle}><span style={{ fontWeight: 500 }}>{m.name}</span></td>
                 <td style={tdStyle}><span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 100, background: 'var(--border)', color: 'var(--foreground-muted)', fontWeight: 600 }}>{m.type}</span></td>
-                <td style={tdStyle}><span style={{ fontSize: 13, color: 'var(--foreground-muted)' }}>{m._count?.bills || 0}</span></td>
-                <td style={tdStyle}><button onClick={() => remove(m.id)} style={{ ...actionBtnStyle, color: 'var(--error)' }}><Trash2 size={13} /></button></td>
+                <td style={tdStyle}><span style={{ fontSize: 13 }}>{m._count?.bills || 0} bills</span></td>
+                <td style={tdStyle}>{m.isActive ? <span style={{ fontSize: 12, color: '#22c55e' }}>Active</span> : <span style={{ fontSize: 12, color: '#ef4444' }}>Inactive</span>}</td>
+                <td style={tdStyle}>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button onClick={() => openEdit(m)} style={actionBtnStyle}><Edit2 size={13} /></button>
+                    <button onClick={() => remove(m.id)} style={{ ...actionBtnStyle, color: 'var(--error)' }}><Trash2 size={13} /></button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -657,10 +701,10 @@ function ProfileTab({ userId }: { userId?: string }) {
 // ========== HELPERS ==========
 function SettingField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div>
-      <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', marginBottom: 6 }}>{label}</label>
+    <label style={{ display: 'block' }}>
+      <span style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--foreground)', marginBottom: 6 }}>{label}</span>
       {children}
-    </div>
+    </label>
   )
 }
 

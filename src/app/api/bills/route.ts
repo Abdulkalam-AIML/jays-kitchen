@@ -3,13 +3,42 @@ import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/auth'
 import { billSchema } from '@/lib/validations'
 import { createAuditLog } from '@/lib/audit'
+import { invalidateDashboard } from '@/lib/cache'
 
-const BILL_INCLUDE = {
-  vendor: true,
-  category: true,
-  paymentMethod: true,
-  paidBy: { select: { id: true, name: true, email: true, role: true, avatar: true } },
-  images: true,
+const BILL_SELECT = {
+  id: true,
+  billNumber: true,
+  billDate: true,
+  amount: true,
+  remarks: true,
+  status: true,
+  submittedBy: true,
+  submitterName: true,
+  paidBy: true,
+  vendorId: true,
+  categoryId: true,
+  paymentMethodId: true,
+  vendor: { select: { name: true } },
+  category: { select: { name: true, color: true } },
+  paymentMethod: { select: { name: true, type: true } },
+  paidByUser: { select: { id: true, name: true, email: true, role: true, avatar: true } },
+  images: { select: { id: true } },
+}
+
+interface BillWithUser {
+  paidByUser?: { name: string } | null
+  paidBy?: string | null
+  [key: string]: unknown
+}
+
+const mapBill = (bill: BillWithUser) => {
+  const { paidByUser, ...rest } = bill
+  return {
+    ...rest,
+    paidBy: bill.paidBy
+      ? { name: bill.paidBy }
+      : (paidByUser ? { name: paidByUser.name } : null),
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -35,9 +64,9 @@ export async function GET(request: NextRequest) {
 
     if (search) {
       where.OR = [
-        { billNumber: { contains: search } },
-        { remarks: { contains: search } },
-        { vendor: { name: { contains: search } } },
+        { billNumber: { contains: search, mode: 'insensitive' } },
+        { remarks: { contains: search, mode: 'insensitive' } },
+        { vendor: { name: { contains: search, mode: 'insensitive' } } },
       ]
     }
 
@@ -61,7 +90,7 @@ export async function GET(request: NextRequest) {
       prisma.bill.count({ where }),
       prisma.bill.findMany({
         where,
-        include: BILL_INCLUDE,
+        select: BILL_SELECT,
         orderBy: { [sortBy]: sortOrder },
         skip: (page - 1) * limit,
         take: limit,
@@ -72,7 +101,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        data: bills,
+        data: bills.map(mapBill),
         total,
         grandTotal: Number(aggregate._sum.amount ?? 0),
         page,
@@ -103,11 +132,12 @@ export async function POST(request: NextRequest) {
         vendorId: validated.vendorId,
         categoryId: validated.categoryId,
         paymentMethodId: validated.paymentMethodId,
-        paidById: validated.paidById || user.userId,
+        paidById: user.userId,
+        paidBy: validated.paidBy || '',
         submittedBy: user.name,
         status: 'APPROVED',  // Admin-created bills are pre-approved
       },
-      include: BILL_INCLUDE,
+      select: BILL_SELECT,
     })
 
     await createAuditLog({
@@ -118,9 +148,14 @@ export async function POST(request: NextRequest) {
       details: { billNumber: bill.billNumber, amount: Number(bill.amount) },
     })
 
-    return NextResponse.json({ success: true, data: bill }, { status: 201 })
-  } catch (error) {
+    invalidateDashboard()
+
+    return NextResponse.json({ success: true, data: mapBill(bill) }, { status: 201 })
+  } catch (error: unknown) {
     console.error('[BILLS POST ERROR]', error)
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+      return NextResponse.json({ success: false, error: 'Bill number already exists' }, { status: 409 })
+    }
     return NextResponse.json({ success: false, error: 'Failed to create bill' }, { status: 400 })
   }
 }

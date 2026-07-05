@@ -3,13 +3,42 @@ import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/auth'
 import { billSchema } from '@/lib/validations'
 import { createAuditLog } from '@/lib/audit'
+import { invalidateDashboard } from '@/lib/cache'
 
-const BILL_INCLUDE = {
-  vendor: true,
-  category: true,
-  paymentMethod: true,
-  paidBy: { select: { id: true, name: true, email: true, role: true, avatar: true } },
-  images: true,
+const BILL_SELECT = {
+  id: true,
+  billNumber: true,
+  billDate: true,
+  amount: true,
+  remarks: true,
+  status: true,
+  submittedBy: true,
+  submitterName: true,
+  paidBy: true,
+  vendorId: true,
+  categoryId: true,
+  paymentMethodId: true,
+  vendor: { select: { name: true } },
+  category: { select: { name: true, color: true } },
+  paymentMethod: { select: { name: true, type: true } },
+  paidByUser: { select: { id: true, name: true, email: true, role: true, avatar: true } },
+  images: { select: { id: true } },
+}
+
+interface BillWithUser {
+  paidByUser?: { name: string } | null
+  paidBy?: string | null
+  [key: string]: unknown
+}
+
+const mapBill = (bill: BillWithUser) => {
+  const { paidByUser, ...rest } = bill
+  return {
+    ...rest,
+    paidBy: bill.paidBy
+      ? { name: bill.paidBy }
+      : (paidByUser ? { name: paidByUser.name } : null)
+  }
 }
 
 export async function GET(
@@ -21,10 +50,10 @@ export async function GET(
     if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
     const { id } = await params
-    const bill = await prisma.bill.findUnique({ where: { id }, include: BILL_INCLUDE })
+    const bill = await prisma.bill.findUnique({ where: { id }, select: BILL_SELECT })
     if (!bill) return NextResponse.json({ success: false, error: 'Bill not found' }, { status: 404 })
 
-    return NextResponse.json({ success: true, data: bill })
+    return NextResponse.json({ success: true, data: mapBill(bill) })
   } catch (error) {
     console.error('[BILL GET ERROR]', error)
     return NextResponse.json({ success: false, error: 'Failed to fetch bill' }, { status: 500 })
@@ -60,9 +89,9 @@ export async function PATCH(
         ...(validated.vendorId && { vendorId: validated.vendorId }),
         ...(validated.categoryId && { categoryId: validated.categoryId }),
         ...(validated.paymentMethodId && { paymentMethodId: validated.paymentMethodId }),
-        ...(validated.paidById && { paidById: validated.paidById }),
+        ...(validated.paidBy !== undefined && { paidBy: validated.paidBy }),
       },
-      include: BILL_INCLUDE,
+      select: BILL_SELECT,
     })
 
     await createAuditLog({
@@ -73,7 +102,9 @@ export async function PATCH(
       details: { billNumber: bill.billNumber },
     })
 
-    return NextResponse.json({ success: true, data: bill })
+    invalidateDashboard()
+
+    return NextResponse.json({ success: true, data: mapBill(bill) })
   } catch (error) {
     console.error('[BILL PATCH ERROR]', error)
     return NextResponse.json({ success: false, error: 'Failed to update bill' }, { status: 400 })
@@ -89,17 +120,18 @@ export async function DELETE(
     if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
 
     const { id } = await params
-    const existing = await prisma.bill.findUnique({ where: { id }, include: { images: true } })
+    const existing = await prisma.bill.findUnique({ where: { id }, select: { billNumber: true, paidById: true, images: true } })
     if (!existing) return NextResponse.json({ success: false, error: 'Bill not found' }, { status: 404 })
 
     if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN' && existing.paidById !== user.userId) {
       return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
     }
 
-    // Delete Supabase Storage images
-    if (existing.images.length > 0) {
+    // Delete Supabase Storage images (skip local base64 ones)
+    const externalImages = existing.images.filter(img => !img.publicId.startsWith('local_') && !img.publicId.startsWith('public_'))
+    if (externalImages.length > 0) {
       const { deleteFromStorage } = await import('@/lib/storage')
-      await Promise.allSettled(existing.images.map((img) => deleteFromStorage(img.publicId)))
+      await Promise.allSettled(externalImages.map((img) => deleteFromStorage(img.publicId)))
     }
 
     await prisma.bill.delete({ where: { id } })
@@ -111,6 +143,8 @@ export async function DELETE(
       entityId: id,
       details: { billNumber: existing.billNumber },
     })
+
+    invalidateDashboard()
 
     return NextResponse.json({ success: true, message: 'Bill deleted' })
   } catch (error) {

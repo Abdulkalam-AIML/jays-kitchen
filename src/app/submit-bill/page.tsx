@@ -55,7 +55,7 @@ export default function SubmitBillPage() {
 
   // Form state
   const [billDate, setBillDate] = useState(new Date().toISOString().split('T')[0])
-  const [billNumber, setBillNumber] = useState(`BILL-${Date.now().toString().slice(-6)}`)
+  const [billNumber, setBillNumber] = useState('')
   const [vendorId, setVendorId] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [paymentMethodId, setPaymentMethodId] = useState('')
@@ -63,14 +63,6 @@ export default function SubmitBillPage() {
   const [amount, setAmount] = useState('')
   const [remarks, setRemarks] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
-
-  // Inline add states
-  const [showAddVendor, setShowAddVendor] = useState(false)
-  const [newVendorName, setNewVendorName] = useState('')
-  const [addingVendor, setAddingVendor] = useState(false)
-  const [showAddCategory, setShowAddCategory] = useState(false)
-  const [newCategoryName, setNewCategoryName] = useState('')
-  const [addingCategory, setAddingCategory] = useState(false)
 
   // Errors
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -92,54 +84,6 @@ export default function SubmitBillPage() {
       if (pm.success) setPaymentMethods(pm.data)
     } catch {
       // silent fail
-    }
-  }
-
-  const handleAddVendor = async () => {
-    if (!newVendorName.trim()) return
-    setAddingVendor(true)
-    try {
-      const res = await fetch('/api/public/vendors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newVendorName.trim() }),
-      })
-      const json = await res.json()
-      if (json.success) {
-        setVendors((prev) => [...prev, json.data].sort((a, b) => a.name.localeCompare(b.name)))
-        setVendorId(json.data.id)
-        setNewVendorName('')
-        setShowAddVendor(false)
-        toast.success('Vendor added!')
-      }
-    } catch {
-      toast.error('Failed to add vendor')
-    } finally {
-      setAddingVendor(false)
-    }
-  }
-
-  const handleAddCategory = async () => {
-    if (!newCategoryName.trim()) return
-    setAddingCategory(true)
-    try {
-      const res = await fetch('/api/public/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newCategoryName.trim(), color: '#f97316' }),
-      })
-      const json = await res.json()
-      if (json.success) {
-        setCategories((prev) => [...prev, json.data].sort((a, b) => a.name.localeCompare(b.name)))
-        setCategoryId(json.data.id)
-        setNewCategoryName('')
-        setShowAddCategory(false)
-        toast.success('Category added!')
-      }
-    } catch {
-      toast.error('Failed to add category')
-    } finally {
-      setAddingCategory(false)
     }
   }
 
@@ -194,7 +138,7 @@ export default function SubmitBillPage() {
 
   const handleReset = () => {
     setBillDate(new Date().toISOString().split('T')[0])
-    setBillNumber(`BILL-${Date.now().toString().slice(-6)}`)
+    setBillNumber('')
     setVendorId('')
     setCategoryId('')
     setPaymentMethodId('')
@@ -289,8 +233,9 @@ export default function SubmitBillPage() {
             {/* Row: Date + Bill Number */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 18 }}>
               <div>
-                <label style={labelStyle}><Calendar size={13} style={{ display: 'inline', marginRight: 5 }} />Date of Bill Paid</label>
+                <label htmlFor="billDate" style={labelStyle}><Calendar size={13} style={{ display: 'inline', marginRight: 5 }} />Date of Bill Paid</label>
                 <input
+                  id="billDate"
                   type="date"
                   value={billDate}
                   onChange={(e) => { setBillDate(e.target.value); setErrors((p) => ({ ...p, billDate: '' })) }}
@@ -301,8 +246,9 @@ export default function SubmitBillPage() {
                 {errors.billDate && <p style={{ color: 'var(--error)', fontSize: 12, marginTop: 4 }}>{errors.billDate}</p>}
               </div>
               <div>
-                <label style={labelStyle}><Hash size={13} style={{ display: 'inline', marginRight: 5 }} />Bill Number</label>
+                <label htmlFor="billNumber" style={labelStyle}><Hash size={13} style={{ display: 'inline', marginRight: 5 }} />Bill Number</label>
                 <input
+                  id="billNumber"
                   type="text"
                   value={billNumber}
                   onChange={(e) => { setBillNumber(e.target.value); setErrors((p) => ({ ...p, billNumber: '' })) }}
@@ -317,8 +263,9 @@ export default function SubmitBillPage() {
 
             {/* Your Name */}
             <div style={{ marginBottom: 18 }}>
-              <label style={labelStyle}><User size={13} style={{ display: 'inline', marginRight: 5 }} />Your Name (Paid By)</label>
+              <label htmlFor="submitterName" style={labelStyle}><User size={13} style={{ display: 'inline', marginRight: 5 }} />Your Name (Paid By)</label>
               <input
+                id="submitterName"
                 type="text"
                 value={submitterName}
                 onChange={(e) => { setSubmitterName(e.target.value); setErrors((p) => ({ ...p, submitterName: '' })) }}
@@ -332,10 +279,11 @@ export default function SubmitBillPage() {
 
             {/* Amount */}
             <div style={{ marginBottom: 18 }}>
-              <label style={labelStyle}><DollarSign size={13} style={{ display: 'inline', marginRight: 5 }} />Amount</label>
+              <label htmlFor="amount" style={labelStyle}><DollarSign size={13} style={{ display: 'inline', marginRight: 5 }} />Amount</label>
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--foreground-muted)', fontSize: 15, fontWeight: 600 }}>$</span>
                 <input
+                  id="amount"
                   type="number"
                   value={amount}
                   onChange={(e) => { setAmount(e.target.value); setErrors((p) => ({ ...p, amount: '' })) }}
@@ -352,31 +300,9 @@ export default function SubmitBillPage() {
 
             {/* Vendor */}
             <div style={{ marginBottom: 18 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
-                <label style={{ ...labelStyle, marginBottom: 0 }}>Vendor</label>
-                <button type="button" onClick={() => setShowAddVendor(!showAddVendor)} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
-                  <Plus size={12} /> Add Vendor
-                </button>
-              </div>
-              {showAddVendor && (
-                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                  <input
-                    type="text"
-                    value={newVendorName}
-                    onChange={(e) => setNewVendorName(e.target.value)}
-                    placeholder="New vendor name"
-                    style={{ ...inputStyle, flex: 1 }}
-                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddVendor())}
-                  />
-                  <button type="button" onClick={handleAddVendor} disabled={addingVendor} style={{ padding: '0 14px', borderRadius: 8, border: 'none', background: 'var(--primary)', color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    {addingVendor ? '…' : 'Add'}
-                  </button>
-                  <button type="button" onClick={() => setShowAddVendor(false)} style={{ padding: '0 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--foreground-muted)' }}>
-                    <X size={14} />
-                  </button>
-                </div>
-              )}
+              <label htmlFor="vendorId" style={labelStyle}>Vendor</label>
               <select
+                id="vendorId"
                 value={vendorId}
                 onChange={(e) => { setVendorId(e.target.value); setErrors((p) => ({ ...p, vendorId: '' })) }}
                 style={{ ...inputStyle, borderColor: errors.vendorId ? 'var(--error)' : undefined, cursor: 'pointer' }}
@@ -391,8 +317,9 @@ export default function SubmitBillPage() {
 
             {/* Paid With */}
             <div style={{ marginBottom: 18 }}>
-              <label style={labelStyle}>Paid With</label>
+              <label htmlFor="paymentMethodId" style={labelStyle}>Paid With</label>
               <select
+                id="paymentMethodId"
                 value={paymentMethodId}
                 onChange={(e) => { setPaymentMethodId(e.target.value); setErrors((p) => ({ ...p, paymentMethodId: '' })) }}
                 style={{ ...inputStyle, borderColor: errors.paymentMethodId ? 'var(--error)' : undefined, cursor: 'pointer' }}
@@ -407,31 +334,9 @@ export default function SubmitBillPage() {
 
             {/* Category */}
             <div style={{ marginBottom: 18 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 7 }}>
-                <label style={{ ...labelStyle, marginBottom: 0 }}>Category</label>
-                <button type="button" onClick={() => setShowAddCategory(!showAddCategory)} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--primary)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 600 }}>
-                  <Plus size={12} /> Add Category
-                </button>
-              </div>
-              {showAddCategory && (
-                <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                  <input
-                    type="text"
-                    value={newCategoryName}
-                    onChange={(e) => setNewCategoryName(e.target.value)}
-                    placeholder="New category name"
-                    style={{ ...inputStyle, flex: 1 }}
-                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCategory())}
-                  />
-                  <button type="button" onClick={handleAddCategory} disabled={addingCategory} style={{ padding: '0 14px', borderRadius: 8, border: 'none', background: 'var(--primary)', color: 'white', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    {addingCategory ? '…' : 'Add'}
-                  </button>
-                  <button type="button" onClick={() => setShowAddCategory(false)} style={{ padding: '0 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--foreground-muted)' }}>
-                    <X size={14} />
-                  </button>
-                </div>
-              )}
+              <label htmlFor="categoryId" style={labelStyle}>Category</label>
               <select
+                id="categoryId"
                 value={categoryId}
                 onChange={(e) => { setCategoryId(e.target.value); setErrors((p) => ({ ...p, categoryId: '' })) }}
                 style={{ ...inputStyle, borderColor: errors.categoryId ? 'var(--error)' : undefined, cursor: 'pointer' }}
@@ -446,8 +351,9 @@ export default function SubmitBillPage() {
 
             {/* Remarks */}
             <div style={{ marginBottom: 18 }}>
-              <label style={labelStyle}><FileText size={13} style={{ display: 'inline', marginRight: 5 }} />Remarks <span style={{ fontWeight: 400, color: 'var(--foreground-muted)', fontSize: 11 }}>(optional)</span></label>
+              <label htmlFor="remarks" style={labelStyle}><FileText size={13} style={{ display: 'inline', marginRight: 5 }} />Remarks <span style={{ fontWeight: 400, color: 'var(--foreground-muted)', fontSize: 11 }}>(optional)</span></label>
               <textarea
+                id="remarks"
                 value={remarks}
                 onChange={(e) => setRemarks(e.target.value)}
                 placeholder="Any additional notes about this bill…"

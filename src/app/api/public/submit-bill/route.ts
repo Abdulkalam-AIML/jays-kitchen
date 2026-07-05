@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { publicBillSchema } from '@/lib/validations'
 import { uploadToStorage } from '@/lib/storage'
+import { invalidateDashboard } from '@/lib/cache'
 
 // Rate-limit map (simple in-memory; resets on server restart)
 const submissions = new Map<string, number[]>()
@@ -114,16 +115,14 @@ export async function POST(request: NextRequest) {
     if (file) {
       try {
         const buffer = Buffer.from(await file.arrayBuffer())
-        const uploadResult = await uploadToStorage(buffer, {
-          fileName: `public_${bill.id}_${Date.now()}_${file.name}`,
-          contentType: file.type,
-        })
+        const base64 = buffer.toString('base64')
+        const dataUrl = `data:${file.type};base64,${base64}`
         await prisma.billImage.create({
           data: {
             billId: bill.id,
-            url: uploadResult.url,
-            publicId: uploadResult.publicId,
-            thumbnailUrl: uploadResult.thumbnailUrl,
+            url: dataUrl,
+            publicId: `public_${bill.id}_${Date.now()}`,
+            thumbnailUrl: dataUrl,
           },
         })
       } catch (uploadError) {
@@ -141,6 +140,8 @@ export async function POST(request: NextRequest) {
         images: true,
       },
     })
+
+    invalidateDashboard()
 
     return NextResponse.json({
       success: true,

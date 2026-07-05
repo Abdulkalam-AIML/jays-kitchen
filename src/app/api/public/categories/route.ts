@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getCachedActiveCategories, invalidateCategories } from '@/lib/cache'
 
 export async function GET() {
   try {
-    const categories = await prisma.category.findMany({
-      where: { isActive: true },
-      select: { id: true, name: true, color: true, icon: true },
-      orderBy: { name: 'asc' },
-    })
-    return NextResponse.json({ success: true, data: categories })
+    const categories = await getCachedActiveCategories()
+    return NextResponse.json(
+      { success: true, data: categories },
+      { headers: { 'Cache-Control': 's-maxage=60, stale-while-revalidate=120' } }
+    )
   } catch (error) {
     console.error('[PUBLIC CATEGORIES ERROR]', error)
     return NextResponse.json({ success: false, error: 'Failed to fetch categories' }, { status: 500 })
@@ -29,6 +29,9 @@ export async function POST(request: Request) {
       data: { name: name.trim(), color: color || '#f97316' },
       select: { id: true, name: true, color: true },
     })
+
+    invalidateCategories()
+
     return NextResponse.json({ success: true, data: category }, { status: 201 })
   } catch (error) {
     console.error('[PUBLIC CATEGORY CREATE ERROR]', error)

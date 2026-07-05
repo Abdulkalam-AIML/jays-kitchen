@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/auth'
 import { vendorSchema } from '@/lib/validations'
 import { createAuditLog } from '@/lib/audit'
+import { getCachedVendorsList, invalidateVendors } from '@/lib/cache'
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,14 +14,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search') || ''
     const activeOnly = searchParams.get('activeOnly') === 'true'
 
-    const vendors = await prisma.vendor.findMany({
-      where: {
-        ...(activeOnly && { isActive: true }),
-        ...(search && { name: { contains: search } }),
-      },
-      orderBy: { name: 'asc' },
-      include: { _count: { select: { bills: true } } },
-    })
+    const vendors = await getCachedVendorsList({ search, activeOnly })
 
     return NextResponse.json({ success: true, data: vendors })
   } catch (error) {
@@ -46,6 +40,8 @@ export async function POST(request: NextRequest) {
       entityId: vendor.id,
       details: { name: vendor.name },
     })
+
+    invalidateVendors()
 
     return NextResponse.json({ success: true, data: vendor }, { status: 201 })
   } catch (error) {

@@ -42,6 +42,7 @@ model User {
   auditLogs AuditLog[]
 
   @@map("users")
+  @@index([createdAt])
 }
 
 model Vendor {
@@ -58,6 +59,7 @@ model Vendor {
   bills Bill[]
 
   @@map("vendors")
+  @@index([createdAt])
 }
 
 model Category {
@@ -72,6 +74,7 @@ model Category {
   bills Bill[]
 
   @@map("categories")
+  @@index([createdAt])
 }
 
 model PaymentMethod {
@@ -85,6 +88,7 @@ model PaymentMethod {
   bills Bill[]
 
   @@map("payment_methods")
+  @@index([createdAt])
 }
 
 model Bill {
@@ -109,11 +113,19 @@ model Bill {
   paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id])
 
   paidById        String?
-  paidBy          User?         @relation(fields: [paidById], references: [id])
+  paidByUser      User?         @relation(fields: [paidById], references: [id])
+  paidBy          String?
 
   images          BillImage[]
 
   @@map("bills")
+  @@index([billDate])
+  @@index([vendorId])
+  @@index([categoryId])
+  @@index([paymentMethodId])
+  @@index([paidById])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model BillImage {
@@ -127,6 +139,7 @@ model BillImage {
   bill   Bill   @relation(fields: [billId], references: [id], onDelete: Cascade)
 
   @@map("bill_images")
+  @@index([createdAt])
 }
 
 model AuditLog {
@@ -141,6 +154,7 @@ model AuditLog {
   user   User   @relation(fields: [userId], references: [id])
 
   @@map("audit_logs")
+  @@index([createdAt])
 }
 
 model RestaurantSettings {

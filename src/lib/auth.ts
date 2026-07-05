@@ -1,6 +1,12 @@
 import { cookies } from 'next/headers'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-change-in-prod'
+let JWT_SECRET: string = process.env.JWT_SECRET || ''
+if (!JWT_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('FATAL: JWT_SECRET environment variable is required in production!')
+  }
+  JWT_SECRET = 'fallback-secret-change-in-prod'
+}
 
 export interface JWTPayload {
   userId: string
