@@ -61,6 +61,7 @@ export default function BillsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const lastFetchedQsRef = useRef<string | null>(null)
   const [imageLoading, setImageLoading] = useState<string | null>(null)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
   // Grand Total animated state
   const [displayTotal, setDisplayTotal] = useState(0)
@@ -171,6 +172,35 @@ export default function BillsPage() {
       toast.error('Failed to load image')
     } finally {
       setImageLoading(null)
+    }
+  }
+
+  const handleDownloadImage = async (billId: string, billNumber: string) => {
+    setDownloadingId(billId)
+    try {
+      const res = await fetch(`/api/bills/${billId}/images`)
+      const json = await res.json()
+      if (json.success && json.data.length > 0) {
+        const url = json.data[0].url
+        let ext = 'png'
+        if (url.startsWith('data:application/pdf')) ext = 'pdf'
+        else if (url.startsWith('data:image/jpeg') || url.startsWith('data:image/jpg')) ext = 'jpg'
+        else if (url.startsWith('data:image/gif')) ext = 'gif'
+
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `receipt-${billNumber}.${ext}`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        toast.success('Receipt downloaded successfully!')
+      } else {
+        toast.error('No receipt image found for this bill')
+      }
+    } catch {
+      toast.error('Failed to download receipt')
+    } finally {
+      setDownloadingId(null)
     }
   }
 
@@ -571,23 +601,44 @@ export default function BillsPage() {
                     <td style={{ padding: '12px 14px' }}>
                        <StatusBadge status={bill.status} />
                     </td>
+
                     <td style={{ padding: '12px 14px' }}>
                       {bill.images.length > 0 ? (
-                        <button
-                          onClick={() => handleViewImage(bill.id)}
-                          disabled={imageLoading !== null}
-                          style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--foreground-muted)', fontSize: 12 }}
-                        >
-                          {imageLoading === bill.id ? (
-                            <RefreshCw size={13} style={{ animation: 'spin 0.8s linear infinite' }} />
-                          ) : (
-                            <Eye size={13} />
-                          )} {bill.images.length}
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <button
+                            onClick={() => handleViewImage(bill.id)}
+                            disabled={imageLoading !== null || downloadingId !== null}
+                            title="Preview Image"
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--foreground-muted)', fontSize: 12, transition: 'all 0.15s' }}
+                            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.borderColor = 'var(--primary)' }}
+                            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--foreground-muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+                          >
+                            {imageLoading === bill.id ? (
+                              <RefreshCw size={13} style={{ animation: 'spin 0.8s linear infinite' }} />
+                            ) : (
+                              <Eye size={13} />
+                            )} {bill.images.length}
+                          </button>
+                          <button
+                            onClick={() => handleDownloadImage(bill.id, bill.billNumber)}
+                            disabled={imageLoading !== null || downloadingId !== null}
+                            title="Download Original Receipt"
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 26, height: 26, borderRadius: 6, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', color: 'var(--foreground-muted)', transition: 'all 0.15s' }}
+                            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.borderColor = 'var(--primary)' }}
+                            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--foreground-muted)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+                          >
+                            {downloadingId === bill.id ? (
+                              <RefreshCw size={13} style={{ animation: 'spin 0.8s linear infinite' }} />
+                            ) : (
+                              <Download size={13} />
+                            )}
+                          </button>
+                        </div>
                       ) : (
                         <span style={{ color: 'var(--border)', fontSize: 12 }}>—</span>
                       )}
                     </td>
+
                     <td style={{ padding: '12px 8px' }}>
                       <div style={{ display: 'flex', gap: 4, flexWrap: 'nowrap' }}>
                         {bill.status === 'PENDING' && (

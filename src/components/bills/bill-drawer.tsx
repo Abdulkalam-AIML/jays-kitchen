@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { X, Plus, Save, Loader2, Calendar, Hash, Building2, Tag, CreditCard, User, FileText, Upload, Trash2 } from 'lucide-react'
+import { X, Plus, Save, Loader2, Calendar, Hash, Building2, Tag, CreditCard, User, FileText, Upload, Trash2, Download } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Image from 'next/image'
 import { billSchema, type BillInput } from '@/lib/validations'
@@ -220,6 +220,21 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
     } catch {
       toast.error('Failed to delete image')
     }
+  }
+
+  const handleDownloadImage = (url: string, id: string) => {
+    let ext = 'png'
+    if (url.startsWith('data:application/pdf')) ext = 'pdf'
+    else if (url.startsWith('data:image/jpeg') || url.startsWith('data:image/jpg')) ext = 'jpg'
+    else if (url.startsWith('data:image/gif')) ext = 'gif'
+
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `receipt-${bill?.billNumber || id}.${ext}`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    toast.success('Receipt downloaded successfully!')
   }
 
   if (!open) return null
@@ -538,6 +553,28 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
                       loading="lazy"
                       style={{ objectFit: 'cover', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
                     />
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleDownloadImage(img.url, img.id) }}
+                      style={{
+                        position: 'absolute',
+                        top: 4,
+                        left: 4,
+                        width: 22,
+                        height: 22,
+                        borderRadius: 6,
+                        background: 'rgba(34,197,94,0.9)',
+                        border: 'none',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                      }}
+                      title="Download Image"
+                    >
+                      <Download size={11} />
+                    </button>
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); handleDeleteImage(img.id) }}
