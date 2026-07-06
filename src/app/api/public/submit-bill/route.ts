@@ -158,14 +158,16 @@ export async function POST(request: NextRequest) {
     if (file) {
       try {
         const buffer = Buffer.from(await file.arrayBuffer())
-        const base64 = buffer.toString('base64')
-        const dataUrl = `data:${file.type};base64,${base64}`
+        const storageResult = await uploadToStorage(buffer, {
+          fileName: `bill-${bill.id}-${Date.now()}`,
+          contentType: file.type
+        })
         await prisma.billImage.create({
           data: {
             billId: bill.id,
-            url: dataUrl,
-            publicId: `public_${bill.id}_${Date.now()}`,
-            thumbnailUrl: dataUrl,
+            url: storageResult.url,
+            publicId: storageResult.publicId,
+            thumbnailUrl: storageResult.thumbnailUrl,
           },
         })
       } catch (uploadError) {

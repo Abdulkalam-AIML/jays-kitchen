@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/auth'
 import { createAuditLog } from '@/lib/audit'
+import { uploadToStorage } from '@/lib/storage'
 
 export async function POST(
   request: NextRequest,
@@ -28,17 +29,19 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Invalid file type (jpg, png, webp, pdf only)' }, { status: 400 })
     }
 
-    // ✅ Store as base64 data URL directly in DB — no external storage calls
+    // ✅ Upload to Supabase storage instead of base64
     const buffer = Buffer.from(await file.arrayBuffer())
-    const base64 = buffer.toString('base64')
-    const dataUrl = `data:${file.type};base64,${base64}`
+    const storageResult = await uploadToStorage(buffer, {
+      fileName: `bill-${id}-${Date.now()}`,
+      contentType: file.type
+    })
 
     const image = await prisma.billImage.create({
       data: {
         billId: id,
-        url: dataUrl,
-        publicId: `local_${id}_${Date.now()}`,
-        thumbnailUrl: dataUrl,
+        url: storageResult.url,
+        publicId: storageResult.publicId,
+        thumbnailUrl: storageResult.thumbnailUrl,
       },
     })
 
