@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { publicBillSchema } from '@/lib/validations'
 import { uploadToStorage } from '@/lib/storage'
 import { invalidateDashboard } from '@/lib/cache'
+import { getAuthUser } from '@/lib/auth'
 
 // Rate-limit map (simple in-memory; resets on server restart)
 const submissions = new Map<string, number[]>()
@@ -19,6 +20,11 @@ function getClientIp(req: NextRequest): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getAuthUser()
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized: Authentication required to submit a bill' }, { status: 401 })
+    }
+
     // Simple rate limiting
     const ip = getClientIp(request)
     const now = Date.now()
@@ -131,8 +137,9 @@ export async function POST(request: NextRequest) {
         vendorId: validated.vendorId,
         categoryId: validated.categoryId,
         paymentMethodId: validated.paymentMethodId,
-        submittedBy: 'PUBLIC',
+        submittedBy: user.role,
         submitterName: validated.submitterName,
+        submittedByUserId: user.userId,
         status: 'PENDING',
         paidById: null,
         paymentStatus: validated.paymentStatus,

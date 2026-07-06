@@ -407,7 +407,7 @@ export async function getCachedDashboardDetails(filters: {
             vendor: { select: { name: true } },
             category: { select: { name: true, color: true } },
             paymentMethod: { select: { name: true, type: true } },
-            paidByUser: { select: { name: true } },
+            paidByUser: { select: { firstName: true, lastName: true } },
             images: { select: { thumbnailUrl: true } },
           },
           orderBy: { billDate: 'desc' },
@@ -469,7 +469,7 @@ export async function getCachedDashboardDetails(filters: {
           ...rest,
           paidBy: bill.paidBy
             ? { name: bill.paidBy }
-            : (paidByUser ? { name: paidByUser.name } : null)
+            : (paidByUser ? { name: `${paidByUser.firstName} ${paidByUser.lastName}`.trim() } : null)
         }
       })
 

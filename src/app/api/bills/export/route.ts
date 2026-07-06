@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
         vendor: { select: { name: true } },
         category: { select: { name: true, color: true } },
         paymentMethod: { select: { name: true, type: true } },
-        paidByUser: { select: { name: true } },
+        paidByUser: { select: { firstName: true, lastName: true } },
       },
       orderBy: { billDate: 'desc' },
     })
@@ -41,16 +41,19 @@ export async function GET(request: NextRequest) {
     
     if (format === 'csv') {
       const headers = ['Bill No', 'Date', 'Vendor', 'Category', 'Payment Method', 'Paid By', 'Amount', 'Remarks']
-      const rows = bills.map((b) => [
-        b.billNumber,
-        new Date(b.billDate).toLocaleDateString(locale),
-        b.vendor.name,
-        b.category.name,
-        b.paymentMethod.name,
-        (b.paidBy || b.paidByUser?.name) ?? b.submitterName ?? 'Public',
-        Number(b.amount).toFixed(2),
-        b.remarks || '',
-      ])
+      const rows = bills.map((b) => {
+        const paidByName = b.paidBy || (b.paidByUser ? `${b.paidByUser.firstName} ${b.paidByUser.lastName}`.trim() : '') || b.submitterName || 'Public'
+        return [
+          b.billNumber,
+          new Date(b.billDate).toLocaleDateString(locale),
+          b.vendor.name,
+          b.category.name,
+          b.paymentMethod.name,
+          paidByName,
+          Number(b.amount).toFixed(2),
+          b.remarks || '',
+        ]
+      })
 
       const csv = [headers, ...rows].map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n')
 
@@ -65,16 +68,19 @@ export async function GET(request: NextRequest) {
     // JSON for client-side Excel generation
     return NextResponse.json({
       success: true,
-      data: bills.map((b) => ({
-        billNumber: b.billNumber,
-        billDate: new Date(b.billDate).toLocaleDateString(locale),
-        vendor: b.vendor.name,
-        category: b.category.name,
-        paymentMethod: b.paymentMethod.name,
-        paidBy: (b.paidBy || b.paidByUser?.name) ?? b.submitterName ?? 'Public',
-        amount: Number(b.amount),
-        remarks: b.remarks || '',
-      })),
+      data: bills.map((b) => {
+        const paidByName = b.paidBy || (b.paidByUser ? `${b.paidByUser.firstName} ${b.paidByUser.lastName}`.trim() : '') || b.submitterName || 'Public'
+        return {
+          billNumber: b.billNumber,
+          billDate: new Date(b.billDate).toLocaleDateString(locale),
+          vendor: b.vendor.name,
+          category: b.category.name,
+          paymentMethod: b.paymentMethod.name,
+          paidBy: paidByName,
+          amount: Number(b.amount),
+          remarks: b.remarks || '',
+        }
+      }),
     })
   } catch (error) {
     console.error('[EXPORT ERROR]', error)

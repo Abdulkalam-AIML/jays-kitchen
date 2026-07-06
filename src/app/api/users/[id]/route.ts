@@ -23,7 +23,8 @@ export async function PATCH(
     const validated = userSchema.partial().parse(body)
 
     const updateData: Record<string, unknown> = {}
-    if (validated.name) updateData.name = validated.name
+    if (validated.firstName) updateData.firstName = validated.firstName
+    if (validated.lastName !== undefined) updateData.lastName = validated.lastName
     if (validated.email) updateData.email = validated.email
     if (validated.role && (user.role === 'ADMIN' || user.role === 'SUPER_ADMIN')) updateData.role = validated.role
     if (validated.password) updateData.password = await bcrypt.hash(validated.password, 10)
@@ -32,7 +33,7 @@ export async function PATCH(
     const updated = await prisma.user.update({
       where: { id },
       data: updateData,
-      select: { id: true, name: true, email: true, role: true, avatar: true, isActive: true, updatedAt: true },
+      select: { id: true, firstName: true, lastName: true, email: true, role: true, avatar: true, isActive: true, updatedAt: true },
     })
 
     return NextResponse.json({ success: true, data: updated })
@@ -75,7 +76,7 @@ export async function DELETE(
       prisma.bill.updateMany({
         where: { paidById: id },
         data: {
-          paidBy: targetUser.name,
+          paidBy: `${targetUser.firstName} ${targetUser.lastName}`.trim(),
           paidById: null
         }
       }),

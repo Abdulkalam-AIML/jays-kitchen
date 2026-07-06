@@ -24,7 +24,8 @@ export async function POST(request: NextRequest) {
         const [superAdmin, admin] = await Promise.all([
           prisma.user.create({
             data: {
-              name: 'Jay Super Admin',
+              firstName: 'Jay',
+              lastName: 'Super Admin',
               email: 'superadmin@jayskitchen.com',
               password: superAdminPass,
               role: 'SUPER_ADMIN',
@@ -32,7 +33,8 @@ export async function POST(request: NextRequest) {
           }),
           prisma.user.create({
             data: {
-              name: 'Jay Admin',
+              firstName: 'Jay',
+              lastName: 'Admin',
               email: 'admin@jayskitchen.com',
               password: adminPass,
               role: 'ADMIN',
@@ -60,18 +62,21 @@ export async function POST(request: NextRequest) {
       }, { status: 401 })
     }
 
-    const role = user.role as 'ADMIN' | 'SUPER_ADMIN'
+    const role = user.role as 'ADMIN' | 'SUPER_ADMIN' | 'USER'
+    const fullName = `${user.firstName} ${user.lastName}`.trim()
     const token = await signToken({
       userId: user.id,
       email: user.email,
       role,
-      name: user.name,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      name: fullName,
     })
 
     const response = NextResponse.json({
       success: true,
-      user: { id: user.id, name: user.name, email: user.email, role },
-      data: { id: user.id, name: user.name, email: user.email, role },
+      user: { id: user.id, name: fullName, firstName: user.firstName, lastName: user.lastName, email: user.email, role },
+      data: { id: user.id, name: fullName, firstName: user.firstName, lastName: user.lastName, email: user.email, role },
       token
     })
 

@@ -41,7 +41,11 @@ export default function LoginPage() {
       }
 
       toast.success(`Welcome back, ${json.data.name}!`)
-      router.replace('/dashboard')
+      if (json.data.role === 'USER') {
+        router.replace('/submit-bill')
+      } else {
+        router.replace('/dashboard')
+      }
       router.refresh()
     } catch {
       toast.error('Network error. Please try again.')

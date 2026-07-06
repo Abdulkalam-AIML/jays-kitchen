@@ -5,7 +5,8 @@ import { prisma } from '@/lib/prisma'
 import { getAuthUser } from '@/lib/auth'
 
 const meUpdateSchema = z.object({
-  name: z.string().min(1, 'Name is required').optional(),
+  firstName: z.string().min(1, 'First name is required').optional(),
+  lastName: z.string().optional().default(''),
   email: z.string().email('Invalid email format').optional(),
   currentPassword: z.string().optional(),
   password: z.string().min(8, 'New password must be at least 8 characters').optional(),
@@ -34,8 +35,11 @@ export async function PATCH(request: NextRequest) {
     let logoutRequired = false
 
     // 1. If modifying name
-    if (validated.name && validated.name !== dbUser.name) {
-      updateData.name = validated.name
+    if (validated.firstName && validated.firstName !== dbUser.firstName) {
+      updateData.firstName = validated.firstName
+    }
+    if (validated.lastName !== undefined && validated.lastName !== dbUser.lastName) {
+      updateData.lastName = validated.lastName
     }
 
     // 2. If modifying email
@@ -98,7 +102,9 @@ export async function PATCH(request: NextRequest) {
       logoutRequired,
       data: {
         id: updatedUser.id,
-        name: updatedUser.name,
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        name: `${updatedUser.firstName} ${updatedUser.lastName}`.trim(),
         email: updatedUser.email,
         role: updatedUser.role
       }

@@ -25,6 +25,8 @@ interface Bill {
   categoryId: string
   paymentMethodId: string
   paidBy?: { name: string } | null
+  submittedByUser?: { firstName: string; lastName: string } | null
+  submitterName?: string | null
   images: BillImage[]
   paymentStatus?: 'FULLY_PAID' | 'NOT_PAID' | 'PARTIALLY_PAID'
   amountPaid?: number | string
@@ -428,6 +430,19 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
               className="drawer-input"
             />
           </FieldGroup>
+
+          {isEdit && (
+            <FieldGroup label="Submitted By" icon={<User size={14} />} id="submittedByDisplay">
+              <input
+                id="submittedByDisplay"
+                type="text"
+                readOnly
+                value={bill?.submittedByUser ? `${bill.submittedByUser.firstName} ${bill.submittedByUser.lastName}`.trim() : 'Public Submission'}
+                className="drawer-input"
+                style={{ background: 'var(--background)', cursor: 'not-allowed', color: 'var(--foreground-muted)' }}
+              />
+            </FieldGroup>
+          )}
 
           {/* Remarks */}
           <FieldGroup label="Remarks" icon={<FileText size={14} />} id="remarks">

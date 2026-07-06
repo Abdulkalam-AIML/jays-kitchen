@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 
 // ========== TYPES ==========
-interface AppUser { id: string; name: string; email: string; role: string; isActive: boolean; createdAt: string }
+interface AppUser { id: string; firstName: string; lastName: string; email: string; role: string; isActive: boolean; createdAt: string }
 interface Vendor { id: string; name: string; phone?: string | null; email?: string | null; address?: string | null; gstin?: string | null; isActive: boolean; _count?: { bills: number } }
 interface Category { id: string; name: string; color: string; icon?: string | null; isActive: boolean; _count?: { bills: number } }
 interface PaymentMethod { id: string; name: string; type: string; isActive: boolean; _count?: { bills: number } }
@@ -30,9 +30,9 @@ export default function SettingsPage() {
   const { user: authUser, isSuperAdmin } = useAuth()
   const [activeTab, setActiveTab] = useState('restaurant')
 
-  // Users tab is only visible to SUPER_ADMIN
+  // Users tab is visible to ADMIN and SUPER_ADMIN
   const visibleTabs = TABS.filter((t) => {
-    if (t.id === 'users') return isSuperAdmin
+    if (t.id === 'users') return isSuperAdmin || authUser?.role === 'ADMIN'
     return true
   })
 
@@ -93,7 +93,7 @@ export default function SettingsPage() {
           style={{ flex: 1, minWidth: 0 }}
         >
           {activeTab === 'restaurant' && <RestaurantTab />}
-          {activeTab === 'users' && isSuperAdmin && <UsersTab currentUserId={authUser?.id} />}
+          {activeTab === 'users' && (isSuperAdmin || authUser?.role === 'ADMIN') && <UsersTab currentUserId={authUser?.id} isSuperAdmin={isSuperAdmin} />}
           {activeTab === 'vendors' && <VendorsTab />}
           {activeTab === 'categories' && <CategoriesTab />}
           {activeTab === 'payments' && <PaymentsTab />}
@@ -190,12 +190,12 @@ function RestaurantTab() {
 }
 
 // ========== USERS TAB ==========
-function UsersTab({ currentUserId }: { currentUserId?: string }) {
+function UsersTab({ currentUserId, isSuperAdmin }: { currentUserId?: string; isSuperAdmin?: boolean }) {
   const [users, setUsers] = useState<AppUser[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editUser, setEditUser] = useState<AppUser | null>(null)
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'ADMIN' })
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', role: 'ADMIN' })
   const [saving, setSaving] = useState(false)
   const [showPass, setShowPass] = useState(false)
 
@@ -208,15 +208,15 @@ function UsersTab({ currentUserId }: { currentUserId?: string }) {
 
   useEffect(() => { fetchUsers() }, [])
 
-  const openAdd = () => { setEditUser(null); setForm({ name: '', email: '', password: '', role: 'ADMIN' }); setShowForm(true) }
-  const openEdit = (u: AppUser) => { setEditUser(u); setForm({ name: u.name, email: u.email, password: '', role: u.role }); setShowForm(true) }
+  const openAdd = () => { setEditUser(null); setForm({ firstName: '', lastName: '', email: '', password: '', role: 'ADMIN' }); setShowForm(true) }
+  const openEdit = (u: AppUser) => { setEditUser(u); setForm({ firstName: u.firstName, lastName: u.lastName, email: u.email, password: '', role: u.role }); setShowForm(true) }
 
   const save = async () => {
     setSaving(true)
     try {
       const url = editUser ? `/api/users/${editUser.id}` : '/api/users'
       const method = editUser ? 'PATCH' : 'POST'
-      const body: Record<string, string> = { name: form.name, email: form.email, role: form.role }
+      const body: Record<string, string> = { firstName: form.firstName, lastName: form.lastName, email: form.email, role: form.role }
       if (form.password) body.password = form.password
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const j = await res.json()
@@ -244,14 +244,15 @@ function UsersTab({ currentUserId }: { currentUserId?: string }) {
     <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
       <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h3 style={{ fontSize: 16, fontWeight: 700 }}>Users ({users.length})</h3>
-        <button onClick={openAdd} style={addBtnStyle}><Plus size={14} /> Add User</button>
+        {isSuperAdmin && <button onClick={openAdd} style={addBtnStyle}><Plus size={14} /> Add User</button>}
       </div>
 
-      {showForm && (
+      {showForm && isSuperAdmin && (
         <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', background: 'var(--background)' }}>
           <h4 style={{ fontSize: 14, fontWeight: 600, marginBottom: 16 }}>{editUser ? 'Edit User' : 'New User'}</h4>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <SettingField label="Name"><input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Full name" style={settingInputStyle} /></SettingField>
+            <SettingField label="First Name"><input value={form.firstName} onChange={(e) => setForm((p) => ({ ...p, firstName: e.target.value }))} placeholder="First name" style={settingInputStyle} /></SettingField>
+            <SettingField label="Last Name"><input value={form.lastName} onChange={(e) => setForm((p) => ({ ...p, lastName: e.target.value }))} placeholder="Last name" style={settingInputStyle} /></SettingField>
             <SettingField label="Email"><input value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="email@example.com" type="email" style={settingInputStyle} /></SettingField>
             <SettingField label={editUser ? 'New Password (leave blank to keep)' : 'Password'}>
               <div style={{ position: 'relative' }}>
@@ -263,6 +264,7 @@ function UsersTab({ currentUserId }: { currentUserId?: string }) {
             </SettingField>
             <SettingField label="Role">
               <select value={form.role} onChange={(e) => setForm((p) => ({ ...p, role: e.target.value }))} style={settingSelectStyle}>
+                <option value="USER">User (Submitter only)</option>
                 <option value="ADMIN">Admin</option>
                 <option value="SUPER_ADMIN">Super Admin</option>
               </select>
@@ -274,9 +276,9 @@ function UsersTab({ currentUserId }: { currentUserId?: string }) {
               type="button"
               onClick={() => {
                 if (editUser) {
-                  setForm({ name: editUser.name, email: editUser.email, password: '', role: editUser.role })
+                  setForm({ firstName: editUser.firstName, lastName: editUser.lastName, email: editUser.email, password: '', role: editUser.role })
                 } else {
-                  setForm({ name: '', email: '', password: '', role: 'ADMIN' })
+                  setForm({ firstName: '', lastName: '', email: '', password: '', role: 'USER' })
                 }
               }}
               style={{ ...cancelBtnStyle, color: '#f59e0b', borderColor: 'rgba(245,158,11,0.4)' }}
@@ -292,35 +294,40 @@ function UsersTab({ currentUserId }: { currentUserId?: string }) {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--background)' }}>
-              {['Name', 'Email', 'Role', 'Status', ''].map((h) => (
+              {['Name', 'Email', 'Role', 'Status', isSuperAdmin ? 'Actions' : ''].filter(Boolean).map((h) => (
                 <th key={h} style={thStyle}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {loading ? <tr><td colSpan={5} style={{ padding: 40, textAlign: 'center', color: 'var(--foreground-muted)' }}>Loading…</td></tr> :
-              users.map((u, i) => (
-                <tr key={u.id} style={{ borderBottom: i < users.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <td style={tdStyle}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 12, fontWeight: 700 }}>
-                        {u.name[0]?.toUpperCase()}
+            {loading ? <tr><td colSpan={isSuperAdmin ? 5 : 4} style={{ padding: 40, textAlign: 'center', color: 'var(--foreground-muted)' }}>Loading…</td></tr> :
+              users.map((u, i) => {
+                const fullName = `${u.firstName} ${u.lastName}`.trim()
+                return (
+                  <tr key={u.id} style={{ borderBottom: i < users.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <td style={tdStyle}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 12, fontWeight: 700 }}>
+                          {u.firstName[0]?.toUpperCase()}
+                        </div>
+                        <span style={{ fontWeight: 500, fontSize: 14 }}>{fullName}</span>
+                        {u.id === currentUserId && <span style={{ fontSize: 10, background: 'var(--primary-light)', color: 'var(--primary)', padding: '2px 6px', borderRadius: 100, fontWeight: 600 }}>You</span>}
                       </div>
-                      <span style={{ fontWeight: 500, fontSize: 14 }}>{u.name}</span>
-                      {u.id === currentUserId && <span style={{ fontSize: 10, background: 'var(--primary-light)', color: 'var(--primary)', padding: '2px 6px', borderRadius: 100, fontWeight: 600 }}>You</span>}
-                    </div>
-                  </td>
-                  <td style={tdStyle}><span style={{ fontSize: 13, color: 'var(--foreground-muted)' }}>{u.email}</span></td>
-                  <td style={tdStyle}><span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 100, background: (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN') ? 'var(--primary-light)' : 'var(--border)', color: (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN') ? 'var(--primary)' : 'var(--foreground-muted)', fontWeight: 600 }}>{u.role}</span></td>
-                  <td style={tdStyle}>{u.isActive ? <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#22c55e' }}><CheckCircle2 size={14} />Active</span> : <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#ef4444' }}><XCircle size={14} />Inactive</span>}</td>
-                  <td style={tdStyle}>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      <button onClick={() => openEdit(u)} style={actionBtnStyle}><Edit2 size={13} /></button>
-                      {u.id !== currentUserId && <button onClick={() => deleteUser(u.id, u.name)} style={{ ...actionBtnStyle, color: 'var(--error)' }} title="Delete User"><Trash2 size={13} /></button>}
-                    </div>
-                  </td>
-                </tr>
-              ))
+                    </td>
+                    <td style={tdStyle}><span style={{ fontSize: 13, color: 'var(--foreground-muted)' }}>{u.email}</span></td>
+                    <td style={tdStyle}><span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 100, background: (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN') ? 'var(--primary-light)' : 'var(--border)', color: (u.role === 'ADMIN' || u.role === 'SUPER_ADMIN') ? 'var(--primary)' : 'var(--foreground-muted)', fontWeight: 600 }}>{u.role}</span></td>
+                    <td style={tdStyle}>{u.isActive ? <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#22c55e' }}><CheckCircle2 size={14} />Active</span> : <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: '#ef4444' }}><XCircle size={14} />Inactive</span>}</td>
+                    {isSuperAdmin && (
+                      <td style={tdStyle}>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <button onClick={() => openEdit(u)} style={actionBtnStyle}><Edit2 size={13} /></button>
+                          {u.id !== currentUserId && <button onClick={() => deleteUser(u.id, fullName)} style={{ ...actionBtnStyle, color: 'var(--error)' }} title="Delete User"><Trash2 size={13} /></button>}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                )
+              })
             }
           </tbody>
         </table>

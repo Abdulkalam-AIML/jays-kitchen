@@ -11,6 +11,7 @@ datasource db {
 enum Role {
   ADMIN
   SUPER_ADMIN
+  USER
 }
 
 enum BillStatus {
@@ -35,18 +36,20 @@ enum PaymentMethodType {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      Role     @default(ADMIN)
-  avatar    String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  firstName      String   @default("")
+  lastName       String   @default("")
+  email          String   @unique
+  password       String
+  role           Role     @default(ADMIN)
+  avatar         String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  bills     Bill[]
-  auditLogs AuditLog[]
+  bills          Bill[]     @relation("PaidBills")
+  submittedBills Bill[]     @relation("SubmittedBills")
+  auditLogs      AuditLog[]
 
   @@map("users")
   @@index([createdAt])
@@ -123,8 +126,11 @@ model Bill {
   paymentMethod   PaymentMethod @relation(fields: [paymentMethodId], references: [id])
 
   paidById        String?
-  paidByUser      User?         @relation(fields: [paidById], references: [id])
+  paidByUser      User?         @relation(name: "PaidBills", fields: [paidById], references: [id])
   paidBy          String?
+
+  submittedByUserId String?
+  submittedByUser   User?         @relation(name: "SubmittedBills", fields: [submittedByUserId], references: [id])
 
   images          BillImage[]
 
@@ -134,6 +140,7 @@ model Bill {
   @@index([categoryId])
   @@index([paymentMethodId])
   @@index([paidById])
+  @@index([submittedByUserId])
   @@index([status])
   @@index([paymentStatus])
   @@index([createdAt])

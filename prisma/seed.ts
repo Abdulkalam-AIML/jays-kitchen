@@ -25,7 +25,8 @@ async function main() {
     where: { email: 'superadmin@jayskitchen.com' },
     update: { password: superAdminPass },
     create: {
-      name: 'Jay Super Admin',
+      firstName: 'Jay',
+      lastName: 'Super Admin',
       email: 'superadmin@jayskitchen.com',
       password: superAdminPass,
       role: 'SUPER_ADMIN',
@@ -39,7 +40,8 @@ async function main() {
     where: { email: 'admin@jayskitchen.com' },
     update: { password: adminPass },
     create: {
-      name: 'Jay Admin',
+      firstName: 'Jay',
+      lastName: 'Admin',
       email: 'admin@jayskitchen.com',
       password: adminPass,
       role: 'ADMIN',
@@ -133,19 +135,19 @@ async function main() {
   const statuses = ['PENDING', 'APPROVED', 'APPROVED', 'APPROVED', 'REJECTED'] as const
   const demoBills = [
     { amount: 450.00, remarks: 'Weekly vegetable stock', daysAgo: 1, submittedBy: 'PUBLIC', submitterName: 'Ramesh Kumar' },
-    { amount: 1200.00, remarks: 'Chicken and mutton purchase', daysAgo: 2, submittedBy: admin.name, submitterName: null },
+    { amount: 1200.00, remarks: 'Chicken and mutton purchase', daysAgo: 2, submittedBy: 'ADMIN', submitterName: null },
     { amount: 320.00, remarks: 'Milk, butter, paneer', daysAgo: 3, submittedBy: 'PUBLIC', submitterName: 'Priya S' },
-    { amount: 180.00, remarks: 'Spices restock', daysAgo: 5, submittedBy: admin.name, submitterName: null },
+    { amount: 180.00, remarks: 'Spices restock', daysAgo: 5, submittedBy: 'ADMIN', submitterName: null },
     { amount: 850.00, remarks: 'Monthly grocery purchase', daysAgo: 7, submittedBy: 'PUBLIC', submitterName: 'Suresh M' },
-    { amount: 220.00, remarks: 'Soft drinks and juices', daysAgo: 8, submittedBy: admin.name, submitterName: null },
+    { amount: 220.00, remarks: 'Soft drinks and juices', daysAgo: 8, submittedBy: 'ADMIN', submitterName: null },
     { amount: 150.00, remarks: 'Cleaning supplies', daysAgo: 10, submittedBy: 'PUBLIC', submitterName: 'Anita V' },
-    { amount: 2500.00, remarks: 'New cooking equipment', daysAgo: 12, submittedBy: admin.name, submitterName: null },
+    { amount: 2500.00, remarks: 'New cooking equipment', daysAgo: 12, submittedBy: 'ADMIN', submitterName: null },
     { amount: 380.00, remarks: 'Fresh vegetables', daysAgo: 14, submittedBy: 'PUBLIC', submitterName: 'Ramesh Kumar' },
-    { amount: 920.00, remarks: 'Seafood order', daysAgo: 15, submittedBy: admin.name, submitterName: null },
+    { amount: 920.00, remarks: 'Seafood order', daysAgo: 15, submittedBy: 'ADMIN', submitterName: null },
     { amount: 410.00, remarks: 'Provisions', daysAgo: 18, submittedBy: 'PUBLIC', submitterName: 'Kumar D' },
-    { amount: 670.00, remarks: 'Packaging materials', daysAgo: 20, submittedBy: admin.name, submitterName: null },
+    { amount: 670.00, remarks: 'Packaging materials', daysAgo: 20, submittedBy: 'ADMIN', submitterName: null },
     { amount: 290.00, remarks: 'Dairy products', daysAgo: 22, submittedBy: 'PUBLIC', submitterName: 'Priya S' },
-    { amount: 1100.00, remarks: 'Bulk spices', daysAgo: 25, submittedBy: admin.name, submitterName: null },
+    { amount: 1100.00, remarks: 'Bulk spices', daysAgo: 25, submittedBy: 'ADMIN', submitterName: null },
     { amount: 550.00, remarks: 'Vegetable stock', daysAgo: 28, submittedBy: 'PUBLIC', submitterName: 'Suresh M' },
   ]
 

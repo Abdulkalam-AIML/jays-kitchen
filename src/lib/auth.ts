@@ -11,7 +11,9 @@ if (!JWT_SECRET) {
 export interface JWTPayload {
   userId: string
   email: string
-  role: 'ADMIN' | 'SUPER_ADMIN'
+  role: 'ADMIN' | 'SUPER_ADMIN' | 'USER'
+  firstName: string
+  lastName: string
   name: string
 }
 
@@ -92,7 +94,9 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
       userId: payload.userId,
       email: payload.email,
       role: payload.role,
-      name: payload.name,
+      firstName: payload.firstName || '',
+      lastName: payload.lastName || '',
+      name: payload.name || `${payload.firstName || ''} ${payload.lastName || ''}`.trim(),
     }
   } catch (err) {
     console.error('[JWT VERIFY ERROR]', err)

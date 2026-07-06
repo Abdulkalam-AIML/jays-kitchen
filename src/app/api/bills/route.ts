@@ -18,24 +18,24 @@ const BILL_SELECT = {
   vendor: { select: { name: true } },
   category: { select: { name: true, color: true } },
   paymentMethod: { select: { name: true, type: true } },
-  paidByUser: { select: { name: true } },
+  paidByUser: { select: { firstName: true, lastName: true } },
   paidBy: true,
+  submittedByUserId: true,
+  submittedByUser: { select: { firstName: true, lastName: true } },
   images: { select: { id: true } },
 }
 
-interface BillWithUser {
-  paidByUser?: { name: string } | null
-  paidBy?: string | null
-  [key: string]: unknown
-}
-
-const mapBill = (bill: BillWithUser) => {
-  const { paidByUser, ...rest } = bill
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mapBill = (bill: any) => {
+  const { paidByUser, submittedByUser, ...rest } = bill
   return {
     ...rest,
     paidBy: bill.paidBy
       ? { name: bill.paidBy }
-      : (paidByUser ? { name: paidByUser.name } : null),
+      : (paidByUser ? { name: `${paidByUser.firstName} ${paidByUser.lastName}`.trim() } : null),
+    submittedByUser: submittedByUser
+      ? { firstName: submittedByUser.firstName, lastName: submittedByUser.lastName }
+      : null,
   }
 }
 

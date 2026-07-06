@@ -5,11 +5,9 @@ import { verifyToken } from '@/lib/auth'
 // Paths that are fully public — no auth required
 const PUBLIC_PATHS = [
   '/',
-  '/submit-bill',
   '/admin/login',
   '/login',                  // keep old path as alias
   '/api/auth/login',
-  '/api/public',             // all /api/public/* routes
 ]
 
 // Admin-only redirect target
@@ -51,6 +49,25 @@ export async function middleware(request: NextRequest) {
     const response = NextResponse.redirect(new URL(LOGIN_URL, request.url))
     response.cookies.delete('auth-token')
     return response
+  }
+
+  // Enforce USER role restrictions
+  if (user.role === 'USER') {
+    const isAllowedPage = pathname === '/submit-bill'
+    const isAllowedApi = 
+      pathname.startsWith('/api/public') || 
+      pathname.startsWith('/api/auth') || 
+      pathname === '/api/users/me'
+
+    if (pathname.startsWith('/api/')) {
+      if (!isAllowedApi) {
+        return NextResponse.json({ success: false, error: 'Forbidden: Access denied' }, { status: 403 })
+      }
+    } else {
+      if (!isAllowedPage) {
+        return NextResponse.redirect(new URL('/submit-bill', request.url))
+      }
+    }
   }
 
   // Super Admin only paths — block regular Admin except when accessing their own user

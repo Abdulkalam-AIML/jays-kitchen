@@ -12,7 +12,7 @@ export async function GET() {
     if (user.role !== 'SUPER_ADMIN') return NextResponse.json({ success: false, error: 'Forbidden: Super Admin access required' }, { status: 403 })
 
     const users = await prisma.user.findMany({
-      select: { id: true, name: true, email: true, role: true, avatar: true, isActive: true, createdAt: true, updatedAt: true },
+      select: { id: true, firstName: true, lastName: true, email: true, role: true, avatar: true, isActive: true, createdAt: true, updatedAt: true },
       orderBy: { createdAt: 'desc' },
     })
 
@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
 
     const hashed = await bcrypt.hash(validated.password, 10)
     const newUser = await prisma.user.create({
-      data: { name: validated.name, email: validated.email, password: hashed, role: validated.role },
-      select: { id: true, name: true, email: true, role: true, isActive: true, createdAt: true },
+      data: { firstName: validated.firstName, lastName: validated.lastName || '', email: validated.email, password: hashed, role: validated.role },
+      select: { id: true, firstName: true, lastName: true, email: true, role: true, isActive: true, createdAt: true },
     })
 
     await createAuditLog({ userId: user.userId, action: 'CREATE', entity: 'User', entityId: newUser.id })

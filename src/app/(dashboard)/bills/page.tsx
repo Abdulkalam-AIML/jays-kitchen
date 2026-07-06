@@ -25,6 +25,7 @@ interface Bill {
   category: { name: string; color: string }
   paymentMethod: { name: string; type: string }
   paidBy?: { name: string } | null
+  submittedByUser?: { firstName: string; lastName: string } | null
   vendorId: string
   categoryId: string
   paymentMethodId: string
@@ -517,7 +518,7 @@ export default function BillsPage() {
                     style={{ cursor: 'pointer' }}
                   />
                 </th>
-                {['Bill #', 'Date', 'Vendor', 'Category', 'Payment', 'Amount', 'Payment Status', 'Pending Amount', 'Paid By', 'Status', 'Images', ''].map((h) => (
+                {['Bill #', 'Date', 'Vendor', 'Category', 'Payment', 'Amount', 'Payment Status', 'Pending Amount', 'Paid By', 'Submitted By', 'Status', 'Images', ''].map((h) => (
                   <th key={h} style={{ padding: '11px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: 'var(--foreground-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -529,7 +530,7 @@ export default function BillsPage() {
                     <td style={{ padding: '14px', width: 40 }}>
                       <div className="skeleton" style={{ height: 14, borderRadius: 6, width: 20 }} />
                     </td>
-                    {Array.from({ length: 12 }).map((_, j) => (
+                    {Array.from({ length: 13 }).map((_, j) => (
                       <td key={j} style={{ padding: '14px' }}>
                         <div className="skeleton" style={{ height: 14, borderRadius: 6, width: j === 5 ? 60 : j === 0 ? 80 : '70%' }} />
                       </td>
@@ -538,7 +539,7 @@ export default function BillsPage() {
                 ))
               ) : !bills?.data?.length ? (
                 <tr>
-                  <td colSpan={13} style={{ padding: '60px', textAlign: 'center', color: 'var(--foreground-muted)' }}>
+                  <td colSpan={14} style={{ padding: '60px', textAlign: 'center', color: 'var(--foreground-muted)' }}>
                     <div style={{ fontSize: 40, marginBottom: 12 }}>🧾</div>
                     <p style={{ fontSize: 15, fontWeight: 600, marginBottom: 6 }}>No bills found</p>
                     <p style={{ fontSize: 13 }}>Add your first bill or adjust the filters</p>
@@ -598,6 +599,9 @@ export default function BillsPage() {
                       {formatCurrency(Number(bill.remainingAmount || 0), settings?.currency)}
                     </td>
                     <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--foreground-muted)', whiteSpace: 'nowrap' }}>{bill.paidBy?.name ?? bill.submitterName ?? 'Public'}</td>
+                    <td style={{ padding: '12px 14px', fontSize: 13, color: 'var(--foreground-muted)', whiteSpace: 'nowrap' }}>
+                      {bill.submittedByUser ? bill.submittedByUser.firstName : 'Public Submission'}
+                    </td>
                     <td style={{ padding: '12px 14px' }}>
                        <StatusBadge status={bill.status} />
                     </td>

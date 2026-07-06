@@ -48,6 +48,7 @@ const labelStyle = {
 }
 
 export default function SubmitBillPage() {
+  const [currentUser, setCurrentUser] = useState<{ id: string; name: string; email: string; role: string } | null>(null)
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
@@ -76,6 +77,14 @@ export default function SubmitBillPage() {
 
   useEffect(() => {
     fetchDropdowns()
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.success) {
+          setCurrentUser(j.data)
+          setSubmitterName(j.data.name || '')
+        }
+      })
   }, [])
 
   useEffect(() => {
@@ -240,9 +249,32 @@ export default function SubmitBillPage() {
             <div style={{ color: 'var(--foreground-muted)', fontSize: 11 }}>Expense Management</div>
           </div>
         </div>
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--foreground-muted)', fontSize: 13, textDecoration: 'none' }}>
-          <ArrowLeft size={14} /> Back
-        </Link>
+        {currentUser?.role === 'USER' ? (
+          <button
+            onClick={async () => {
+              await fetch('/api/auth/logout', { method: 'POST' })
+              window.location.href = '/admin/login'
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              color: '#ef4444',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              fontWeight: 600,
+              fontSize: 13
+            }}
+          >
+            Sign Out
+          </button>
+        ) : (
+          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--foreground-muted)', fontSize: 13, textDecoration: 'none' }}>
+            <ArrowLeft size={14} /> Back
+          </Link>
+        )}
       </nav>
 
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '32px 24px 60px' }}>
@@ -252,7 +284,9 @@ export default function SubmitBillPage() {
             <ChefHat size={28} />
           </div>
           <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--foreground)', letterSpacing: '-0.03em', marginBottom: 6 }}>Submit an Expense Bill</h1>
-          <p style={{ color: 'var(--foreground-muted)', fontSize: 14 }}>No account required. Fill in the details below and submit.</p>
+          <p style={{ color: 'var(--foreground-muted)', fontSize: 14 }}>
+            {currentUser ? `Logged in as ${currentUser.name} (${currentUser.email}). Fill in the details below to submit a bill.` : 'Authenticating...'}
+          </p>
         </div>
 
         {/* Form card */}
@@ -299,7 +333,8 @@ export default function SubmitBillPage() {
                 value={submitterName}
                 onChange={(e) => { setSubmitterName(e.target.value); setErrors((p) => ({ ...p, submitterName: '' })) }}
                 placeholder="Enter your full name"
-                style={{ ...inputStyle, borderColor: errors.submitterName ? 'var(--error)' : undefined }}
+                readOnly={!!currentUser}
+                style={{ ...inputStyle, background: currentUser ? 'rgba(255,255,255,0.04)' : 'var(--background)', cursor: currentUser ? 'not-allowed' : 'text', borderColor: errors.submitterName ? 'var(--error)' : undefined }}
                 onFocus={focusStyle}
                 onBlur={blurStyle('submitterName')}
               />

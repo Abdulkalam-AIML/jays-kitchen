@@ -54,10 +54,11 @@ export const paymentMethodSchema = z.object({
 })
 
 export const userSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().optional().default(''),
   email: z.string().email('Invalid email'),
   password: z.string().min(6, 'Password must be at least 6 characters').optional(),
-  role: z.enum(['ADMIN', 'SUPER_ADMIN']),
+  role: z.enum(['ADMIN', 'SUPER_ADMIN', 'USER']),
 })
 
 export const restaurantSchema = z.object({

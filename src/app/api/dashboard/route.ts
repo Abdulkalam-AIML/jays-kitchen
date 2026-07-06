@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     const user = await getAuthUser()
     if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
+    if (user.role === 'USER') return NextResponse.json({ success: false, error: 'Forbidden: Access denied' }, { status: 403 })
 
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') // 'stats' | 'details' | null (all)
