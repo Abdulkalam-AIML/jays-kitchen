@@ -62,7 +62,7 @@ export default function SubmitBillPage() {
   const [vendorId, setVendorId] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [paymentMethodId, setPaymentMethodId] = useState('')
-  const [submitterName, setSubmitterName] = useState('')
+  const [paidBy, setPaidBy] = useState('')
   const [amount, setAmount] = useState('')
   const [remarks, setRemarks] = useState('')
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -82,7 +82,6 @@ export default function SubmitBillPage() {
       .then((j) => {
         if (j.success) {
           setCurrentUser(j.data)
-          setSubmitterName(j.data.name || '')
         }
       })
   }, [])
@@ -125,7 +124,7 @@ export default function SubmitBillPage() {
     if (!vendorId) e.vendorId = 'Please select a vendor'
     if (!categoryId) e.categoryId = 'Please select a category'
     if (!paymentMethodId) e.paymentMethodId = 'Please select payment method'
-    if (!submitterName.trim()) e.submitterName = 'Your name is required'
+    if (!paidBy.trim()) e.paidBy = 'Paid By is required'
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) e.amount = 'Enter a valid amount'
     if (!imageFile) e.imageFile = 'Bill receipt image is required'
     setErrors(e)
@@ -144,7 +143,7 @@ export default function SubmitBillPage() {
       fd.append('vendorId', vendorId)
       fd.append('categoryId', categoryId)
       fd.append('paymentMethodId', paymentMethodId)
-      fd.append('submitterName', submitterName.trim())
+      fd.append('paidBy', paidBy.trim())
       fd.append('amount', amount)
       fd.append('paymentStatus', paymentStatus)
       fd.append('amountPaid', amountPaid)
@@ -177,7 +176,7 @@ export default function SubmitBillPage() {
     setVendorId('')
     setCategoryId('')
     setPaymentMethodId('')
-    setSubmitterName('')
+    setPaidBy('')
     setAmount('')
     setRemarks('')
     setImageFile(null)
@@ -324,21 +323,20 @@ export default function SubmitBillPage() {
               </div>
             </div>
 
-            {/* Your Name */}
+            {/* Paid By */}
             <div style={{ marginBottom: 18 }}>
-              <label htmlFor="submitterName" style={labelStyle}><User size={13} style={{ display: 'inline', marginRight: 5 }} />Your Name (Paid By)</label>
+              <label htmlFor="paidBy" style={labelStyle}><User size={13} style={{ display: 'inline', marginRight: 5 }} />Paid By</label>
               <input
-                id="submitterName"
+                id="paidBy"
                 type="text"
-                value={submitterName}
-                onChange={(e) => { setSubmitterName(e.target.value); setErrors((p) => ({ ...p, submitterName: '' })) }}
-                placeholder="Enter your full name"
-                readOnly={!!currentUser}
-                style={{ ...inputStyle, background: currentUser ? 'rgba(255,255,255,0.04)' : 'var(--background)', cursor: currentUser ? 'not-allowed' : 'text', borderColor: errors.submitterName ? 'var(--error)' : undefined }}
+                value={paidBy}
+                onChange={(e) => { setPaidBy(e.target.value); setErrors((p) => ({ ...p, paidBy: '' })) }}
+                placeholder="Enter the name of the person who paid"
+                style={{ ...inputStyle, background: 'var(--background)', cursor: 'text', borderColor: errors.paidBy ? 'var(--error)' : undefined }}
                 onFocus={focusStyle}
-                onBlur={blurStyle('submitterName')}
+                onBlur={blurStyle('paidBy')}
               />
-              {errors.submitterName && <p style={{ color: 'var(--error)', fontSize: 12, marginTop: 4 }}>{errors.submitterName}</p>}
+              {errors.paidBy && <p style={{ color: 'var(--error)', fontSize: 12, marginTop: 4 }}>{errors.paidBy}</p>}
             </div>
 
             {/* Amount */}

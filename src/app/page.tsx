@@ -1,13 +1,18 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { ChefHat, ArrowRight, Shield } from 'lucide-react'
+import { cookies } from 'next/headers'
 
 export const metadata = {
   title: "Jay's Kitchen — Expense Management",
-  description: "Submit restaurant expense bills quickly and easily. No account required.",
+  description: "Submit restaurant expense bills quickly and easily. Login required.",
 }
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const cookieStore = await cookies()
+  const token = cookieStore.get('auth-token')?.value
+  const submitPath = token ? '/submit-bill' : '/login'
+
   return (
     <div
       style={{
@@ -89,13 +94,13 @@ export default function LandingPage() {
           color: 'rgba(255,255,255,0.5)', fontSize: 'clamp(15px, 2vw, 18px)',
           lineHeight: 1.7, marginBottom: 48, maxWidth: 500,
         }}>
-          No account needed. Fill in the bill details and submit instantly.
+          Log in to submit your expense bills.
           Our admin team will review and approve it.
         </p>
 
         {/* CTA Button */}
         <Link
-          href="/submit-bill"
+          href={submitPath}
           id="submit-bill-cta"
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 10,
@@ -112,7 +117,7 @@ export default function LandingPage() {
         </Link>
 
         <p style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12, marginTop: 16 }}>
-          Free · No registration required · Instant submission
+          Secure submission · Instant confirmation
         </p>
 
         {/* Feature pills */}

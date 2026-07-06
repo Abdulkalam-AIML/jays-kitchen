@@ -38,7 +38,8 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
     }
-    return NextResponse.redirect(new URL(LOGIN_URL, request.url))
+    const redirectPath = pathname === '/submit-bill' ? '/login' : LOGIN_URL
+    return NextResponse.redirect(new URL(redirectPath, request.url))
   }
 
   const user = await verifyToken(token)
@@ -46,7 +47,8 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ success: false, error: 'Invalid token' }, { status: 401 })
     }
-    const response = NextResponse.redirect(new URL(LOGIN_URL, request.url))
+    const redirectPath = pathname === '/submit-bill' ? '/login' : LOGIN_URL
+    const response = NextResponse.redirect(new URL(redirectPath, request.url))
     response.cookies.delete('auth-token')
     return response
   }

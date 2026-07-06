@@ -174,11 +174,6 @@ export default function AdminLoginPage() {
 
           </div>
 
-          <div style={{ textAlign: 'center', marginTop: 20 }}>
-            <Link href="/submit-bill" style={{ color: 'var(--primary)', fontSize: 13, fontWeight: 500, textDecoration: 'none' }}>
-              → Submit a bill without logging in
-            </Link>
-          </div>
 
           <p style={{ textAlign: 'center', marginTop: 16, fontSize: 12, color: 'var(--foreground-muted)' }}>
             © {new Date().getFullYear()} Jay&apos;s Kitchen. All rights reserved.

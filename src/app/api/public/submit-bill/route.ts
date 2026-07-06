@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
     let vendorId = ''
     let categoryId = ''
     let paymentMethodId = ''
-    let submitterName = ''
+    let paidBy = ''
     let amount = 0
     let remarks: string | undefined = undefined
     let file: File | null = null
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
       vendorId = (formData.get('vendorId') as string) || ''
       categoryId = (formData.get('categoryId') as string) || ''
       paymentMethodId = (formData.get('paymentMethodId') as string) || ''
-      submitterName = (formData.get('submitterName') as string) || ''
+      paidBy = (formData.get('paidBy') as string) || ''
       amount = Number(formData.get('amount') || 0)
       remarks = (formData.get('remarks') as string) || undefined
       file = formData.get('file') as File | null
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
       vendorId = validated.vendorId
       categoryId = validated.categoryId
       paymentMethodId = validated.paymentMethodId
-      submitterName = validated.submitterName
+      paidBy = validated.paidBy || ''
       amount = validated.amount
       remarks = validated.remarks
       paymentStatus = validated.paymentStatus || 'NOT_PAID'
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
       vendorId,
       categoryId,
       paymentMethodId,
-      submitterName,
+      paidBy,
       amount,
       remarks,
       paymentStatus,
@@ -138,10 +138,10 @@ export async function POST(request: NextRequest) {
         categoryId: validated.categoryId,
         paymentMethodId: validated.paymentMethodId,
         submittedBy: user.role,
-        submitterName: validated.submitterName,
         submittedByUserId: user.userId,
         status: 'PENDING',
         paidById: null,
+        paidBy: validated.paidBy || '',
         paymentStatus: validated.paymentStatus,
         amountPaid: finalAmountPaid,
         remainingAmount: finalRemainingAmount,
@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
         vendor: updatedBill?.vendor.name,
         category: updatedBill?.category.name,
         paymentMethod: updatedBill?.paymentMethod.name,
-        submitterName: updatedBill?.submitterName,
+        paidBy: updatedBill?.paidBy,
         status: updatedBill?.status,
         images: updatedBill?.images,
       }

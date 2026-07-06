@@ -165,9 +165,10 @@ export async function POST(request: NextRequest) {
         vendorId: validated.vendorId,
         categoryId: validated.categoryId,
         paymentMethodId: validated.paymentMethodId,
-        paidById: user.userId,
+        paidById: null,
         paidBy: validated.paidBy || '',
-        submittedBy: user.name,
+        submittedBy: user.role,
+        submittedByUserId: user.userId,
         status: 'APPROVED',  // Admin-created bills are pre-approved
         paymentStatus: validated.paymentStatus,
         amountPaid: finalAmountPaid,

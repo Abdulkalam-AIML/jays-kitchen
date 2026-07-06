@@ -26,7 +26,7 @@ export const publicBillSchema = z.object({
   vendorId: z.string().min(1, 'Vendor is required'),
   categoryId: z.string().min(1, 'Category is required'),
   paymentMethodId: z.string().min(1, 'Payment method is required'),
-  submitterName: z.string().min(1, 'Your name is required'),
+  paidBy: z.string().max(100, 'Name is too long').optional().or(z.literal('')),
   amount: z.number().positive('Amount must be positive'),
   remarks: z.string().optional(),
   paymentStatus: z.enum(['FULLY_PAID', 'NOT_PAID', 'PARTIALLY_PAID']).optional(),
