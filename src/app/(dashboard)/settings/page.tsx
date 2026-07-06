@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import {
   Users, Building2, Tag, CreditCard, Store, User,
   Plus, Edit2, Trash2, Save, X, Loader2, Eye, EyeOff,
-  Shield, CheckCircle2, XCircle,
+  Shield, CheckCircle2, XCircle, FileText, RefreshCw,
 } from 'lucide-react'
 
 // ========== TYPES ==========
@@ -662,69 +662,276 @@ function PaymentsTab() {
 
 // ========== PROFILE TAB ==========
 function ProfileTab({ userId }: { userId?: string }) {
-  const { refetch } = useAuth()
-  const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' })
-  const [saving, setSaving] = useState(false)
-  const [showPass, setShowPass] = useState(false)
+  const { refetch, logout } = useAuth()
+  
+  // Profile Details State
+  const [profileName, setProfileName] = useState('')
+  const [profileEmail, setProfileEmail] = useState('')
+  const [savingProfile, setSavingProfile] = useState(false)
+
+  // Email Change State
+  const [newEmail, setNewEmail] = useState('')
+  const [emailCurrentPassword, setEmailCurrentPassword] = useState('')
+  const [updatingEmail, setUpdatingEmail] = useState(false)
+  const [showEmailPass, setShowEmailPass] = useState(false)
+
+  // Password Change State
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [updatingPassword, setUpdatingPassword] = useState(false)
+  const [showPassCurrent, setShowPassCurrent] = useState(false)
+  const [showPassNew, setShowPassNew] = useState(false)
 
   useEffect(() => {
-    if (!userId) return
-    fetch('/api/auth/me').then((r) => r.json()).then((j) => {
-      if (j.success) setForm((p) => ({ ...p, name: j.data.name, email: j.data.email }))
-    })
-  }, [userId])
+    fetch('/api/auth/me')
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.success) {
+          setProfileName(j.data.name)
+          setProfileEmail(j.data.email)
+        }
+      })
+  }, [])
 
-  const save = async () => {
-    if (form.password && form.password !== form.confirmPassword) {
+  const handleUpdateProfile = async () => {
+    setSavingProfile(true)
+    try {
+      const res = await fetch('/api/users/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: profileName }),
+      })
+      const j = await res.json()
+      if (!j.success) throw new Error(j.error || 'Failed to update profile')
+      toast.success('Profile details updated!')
+      refetch()
+    } catch (e: unknown) {
+      toast.error((e as Error).message || 'Failed to update profile')
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  const handleUpdateEmail = async () => {
+    if (!newEmail) {
+      toast.error('New email is required')
+      return
+    }
+    if (!emailCurrentPassword) {
+      toast.error('Current password is required')
+      return
+    }
+    setUpdatingEmail(true)
+    try {
+      const res = await fetch('/api/users/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: newEmail, currentPassword: emailCurrentPassword }),
+      })
+      const j = await res.json()
+      if (!j.success) throw new Error(j.error || 'Failed to update email')
+      toast.success('Email updated successfully! Logging out...')
+      setTimeout(async () => {
+        await logout()
+        window.location.href = '/login?msg=email_changed'
+      }, 1500)
+    } catch (e: unknown) {
+      toast.error((e as Error).message || 'Failed to update email')
+    } finally {
+      setUpdatingEmail(false)
+    }
+  }
+
+  const handleUpdatePassword = async () => {
+    if (!currentPassword) {
+      toast.error('Current password is required')
+      return
+    }
+    if (!newPassword) {
+      toast.error('New password is required')
+      return
+    }
+    if (newPassword.length < 8) {
+      toast.error('New password must be at least 8 characters long')
+      return
+    }
+    if (newPassword === currentPassword) {
+      toast.error('New password cannot be identical to your current password')
+      return
+    }
+    if (newPassword !== confirmPassword) {
       toast.error('Passwords do not match')
       return
     }
-    setSaving(true)
+    setUpdatingPassword(true)
     try {
-      const body: Record<string, string> = { name: form.name, email: form.email }
-      if (form.password) body.password = form.password
-      const res = await fetch(`/api/users/${userId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      const res = await fetch('/api/users/me', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: newPassword, currentPassword }),
+      })
       const j = await res.json()
-      if (!j.success) throw new Error(j.error)
-      toast.success('Profile updated!')
-      refetch()
-    } catch (e: unknown) { toast.error((e as Error).message || 'Failed') } finally { setSaving(false) }
+      if (!j.success) throw new Error(j.error || 'Failed to update password')
+      toast.success('Password changed successfully! Logging out...')
+      setTimeout(async () => {
+        await logout()
+        window.location.href = '/login?msg=password_changed'
+      }, 1500)
+    } catch (e: unknown) {
+      toast.error((e as Error).message || 'Failed to update password')
+    } finally {
+      setUpdatingPassword(false)
+    }
   }
 
   return (
-    <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16, padding: 28 }}>
-      <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 24 }}>My Profile</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <SettingField label="Full Name"><input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} placeholder="Your name" style={settingInputStyle} /></SettingField>
-        <SettingField label="Email"><input value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} placeholder="email" type="email" style={settingInputStyle} /></SettingField>
-        <SettingField label="New Password (optional)">
-          <div style={{ position: 'relative' }}>
-            <input value={form.password} onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))} placeholder="Leave blank to keep current" type={showPass ? 'text' : 'password'} style={{ ...settingInputStyle, paddingRight: 36 }} />
-            <button type="button" onClick={() => setShowPass(!showPass)} style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--foreground-muted)', display: 'flex' }}>
-              {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
-            </button>
-          </div>
-        </SettingField>
-        <SettingField label="Confirm Password"><input value={form.confirmPassword} onChange={(e) => setForm((p) => ({ ...p, confirmPassword: e.target.value }))} placeholder="Re-enter password" type="password" style={settingInputStyle} /></SettingField>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* CARD 1: Profile Details */}
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16, padding: 28 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <User size={18} style={{ color: 'var(--primary)' }} />
+          Profile Information
+        </h3>
+        <p style={{ fontSize: 13, color: 'var(--foreground-muted)', marginBottom: 20 }}>
+          Update your public profile display name.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'end' }}>
+          <SettingField label="Full Name">
+            <input 
+              value={profileName} 
+              onChange={(e) => setProfileName(e.target.value)} 
+              placeholder="Your name" 
+              style={settingInputStyle} 
+            />
+          </SettingField>
+          <SettingField label="Email Address (Login Username)">
+            <input 
+              value={profileEmail} 
+              disabled 
+              style={{ ...settingInputStyle, opacity: 0.6, cursor: 'not-allowed', background: 'var(--border)' }} 
+            />
+          </SettingField>
+        </div>
+        <div style={{ display: 'flex', marginTop: 20 }}>
+          <button onClick={handleUpdateProfile} disabled={savingProfile} style={saveBtnStyle}>
+            {savingProfile ? <Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Save size={15} />}
+            {savingProfile ? 'Saving…' : 'Save Details'}
+          </button>
+        </div>
       </div>
-      <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-        <button onClick={save} disabled={saving} style={saveBtnStyle}>
-          {saving ? <Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Save size={15} />}
-          {saving ? 'Saving…' : 'Save Profile'}
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            if (userId) {
-              fetch('/api/auth/me').then((r) => r.json()).then((j) => {
-                if (j.success) setForm({ name: j.data.name, email: j.data.email, password: '', confirmPassword: '' })
-              })
-            }
-          }}
-          style={cancelBtnStyle}
-        >
-          Reset
-        </button>
+
+      {/* CARD 2: Change Email */}
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16, padding: 28 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <FileText size={18} style={{ color: 'var(--primary)' }} />
+          Change Login Email
+        </h3>
+        <p style={{ fontSize: 13, color: 'var(--foreground-muted)', marginBottom: 20 }}>
+          Update the email address you use to log in. You will be logged out upon success.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <SettingField label="New Email Address">
+            <input 
+              value={newEmail} 
+              onChange={(e) => setNewEmail(e.target.value)} 
+              placeholder="new@example.com" 
+              type="email" 
+              style={settingInputStyle} 
+            />
+          </SettingField>
+          <SettingField label="Confirm Identity (Current Password)">
+            <div style={{ position: 'relative' }}>
+              <input 
+                value={emailCurrentPassword} 
+                onChange={(e) => setEmailCurrentPassword(e.target.value)} 
+                placeholder="Enter current password" 
+                type={showEmailPass ? 'text' : 'password'} 
+                style={{ ...settingInputStyle, paddingRight: 36 }} 
+              />
+              <button 
+                type="button" 
+                onClick={() => setShowEmailPass(!showEmailPass)} 
+                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--foreground-muted)', display: 'flex' }}
+              >
+                {showEmailPass ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+          </SettingField>
+        </div>
+        <div style={{ display: 'flex', marginTop: 20 }}>
+          <button onClick={handleUpdateEmail} disabled={updatingEmail} style={saveBtnStyle}>
+            {updatingEmail ? <Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> : <RefreshCw size={15} />}
+            {updatingEmail ? 'Updating…' : 'Update Email Address'}
+          </button>
+        </div>
+      </div>
+
+      {/* CARD 3: Change Password */}
+      <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16, padding: 28 }}>
+        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Save size={18} style={{ color: 'var(--primary)' }} />
+          Change Password
+        </h3>
+        <p style={{ fontSize: 13, color: 'var(--foreground-muted)', marginBottom: 20 }}>
+          Ensure your account is using a long, random password. You will be logged out upon success.
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <SettingField label="Current Password">
+            <div style={{ position: 'relative' }}>
+              <input 
+                value={currentPassword} 
+                onChange={(e) => setCurrentPassword(e.target.value)} 
+                placeholder="Current password" 
+                type={showPassCurrent ? 'text' : 'password'} 
+                style={{ ...settingInputStyle, paddingRight: 36 }} 
+              />
+              <button 
+                type="button" 
+                onClick={() => setShowPassCurrent(!showPassCurrent)} 
+                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--foreground-muted)', display: 'flex' }}
+              >
+                {showPassCurrent ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+          </SettingField>
+          <div></div>
+          
+          <SettingField label="New Password">
+            <div style={{ position: 'relative' }}>
+              <input 
+                value={newPassword} 
+                onChange={(e) => setNewPassword(e.target.value)} 
+                placeholder="At least 8 characters" 
+                type={showPassNew ? 'text' : 'password'} 
+                style={{ ...settingInputStyle, paddingRight: 36 }} 
+              />
+              <button 
+                type="button" 
+                onClick={() => setShowPassNew(!showPassNew)} 
+                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--foreground-muted)', display: 'flex' }}
+              >
+                {showPassNew ? <EyeOff size={14} /> : <Eye size={14} />}
+              </button>
+            </div>
+          </SettingField>
+          
+          <SettingField label="Confirm New Password">
+            <input 
+              value={confirmPassword} 
+              onChange={(e) => setConfirmPassword(e.target.value)} 
+              placeholder="Re-enter new password" 
+              type="password" 
+              style={settingInputStyle} 
+            />
+          </SettingField>
+        </div>
+        <div style={{ display: 'flex', marginTop: 20 }}>
+          <button onClick={handleUpdatePassword} disabled={updatingPassword} style={saveBtnStyle}>
+            {updatingPassword ? <Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> : <Save size={15} />}
+            {updatingPassword ? 'Changing…' : 'Update Password'}
+          </button>
+        </div>
       </div>
     </div>
   )
