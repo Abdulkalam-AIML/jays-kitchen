@@ -20,7 +20,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const user = await getAuthUser()
     if (!user) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    if (user.role !== 'ADMIN') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+    if (user.role !== 'ADMIN' && user.role !== 'SUPER_ADMIN') return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
 
     const body = await request.json()
     const validated = restaurantSchema.partial().parse(body)
