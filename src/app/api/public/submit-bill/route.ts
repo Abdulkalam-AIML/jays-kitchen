@@ -82,13 +82,7 @@ export async function POST(request: NextRequest) {
       amountPaidInput = validated.amountPaid || 0
     }
 
-    // Require image upload on backend API
-    if (!file || file.size === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Bill receipt image is required' },
-        { status: 400 }
-      )
-    }
+
 
     // Validate using Zod schema
     const validated = publicBillSchema.parse({
@@ -155,7 +149,7 @@ export async function POST(request: NextRequest) {
     })
 
     // If an image is provided, upload it and create a BillImage record
-    if (file) {
+    if (file && file.size > 0) {
       try {
         const buffer = Buffer.from(await file.arrayBuffer())
         const storageResult = await uploadToStorage(buffer, {

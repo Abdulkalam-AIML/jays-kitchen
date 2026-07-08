@@ -124,7 +124,6 @@ export default function SubmitBillPage() {
     if (!paymentMethodId) e.paymentMethodId = 'Please select payment method'
     if (!paidBy.trim()) e.paidBy = 'Paid By is required'
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) e.amount = 'Enter a valid amount'
-    if (!imageFile) e.imageFile = 'Bill receipt image is required'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -473,11 +472,11 @@ export default function SubmitBillPage() {
              <div style={{ marginBottom: 28 }}>
                <label style={labelStyle}>
                  <Upload size={13} style={{ display: 'inline', marginRight: 5 }} />
-                 Bill Image <span style={{ fontWeight: 600, color: 'var(--error)', fontSize: 11 }}>* (Required — jpg, jpeg, png, pdf)</span>
+                 Bill Image <span style={{ fontWeight: 400, color: 'var(--foreground-muted)', fontSize: 11 }}>(Optional — jpg, jpeg, png, pdf)</span>
                </label>
                <div
                  style={{
-                   border: `2px dashed ${imageFile ? 'var(--primary)' : (errors.imageFile ? 'var(--error)' : 'var(--border)')}`,
+                   border: `2px dashed ${imageFile ? 'var(--primary)' : 'var(--border)'}`,
                    borderRadius: 12, padding: '20px', textAlign: 'center',
                    background: imageFile ? 'rgba(249,115,22,0.04)' : 'transparent',
                    cursor: 'pointer', transition: 'all 0.15s',

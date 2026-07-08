@@ -148,10 +148,6 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
   }
 
   const onSubmit = async (data: BillInput) => {
-    if (!isEdit && !pendingFile) {
-      toast.error('Bill receipt image is required')
-      return
-    }
     setSaving(true)
     try {
       const url = isEdit ? `/api/bills/${bill!.id}` : '/api/bills'
@@ -487,9 +483,7 @@ export default function BillDrawer({ open, onClose, onSaved, bill }: Props) {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
               <label style={{ fontSize: 13, fontWeight: 600, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 6 }}>
                 <Upload size={14} color="var(--foreground-muted)" />
-                Bill Image
-                {!isEdit && <span style={{ fontWeight: 600, fontSize: 11, color: 'var(--error)' }}>* (Required)</span>}
-                {isEdit && <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--foreground-muted)' }}>(Optional)</span>}
+                Bill Image <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--foreground-muted)' }}>(Optional)</span>
               </label>
               <label
                 style={{
