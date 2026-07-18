@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
 
     const bill = await prisma.bill.create({
       data: {
-        billNumber: validated.billNumber,
+        billNumber: (validated.billNumber && validated.billNumber.trim()) ? validated.billNumber.trim() : null,
         billDate: new Date(validated.billDate),
         amount: validated.amount,
         remarks: validated.remarks,

@@ -55,7 +55,13 @@ export default function SubmitBillPage() {
   const [submittedBill, setSubmittedBill] = useState<{ billNumber: string; amount: number } | null>(null)
 
   // Form state
-  const [billDate, setBillDate] = useState(new Date().toISOString().split('T')[0])
+  const [billDate, setBillDate] = useState(() => {
+    const d = new Date()
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  })
   const [billNumber, setBillNumber] = useState('')
   const [vendorId, setVendorId] = useState('')
   const [categoryId, setCategoryId] = useState('')
@@ -118,7 +124,6 @@ export default function SubmitBillPage() {
   const validate = () => {
     const e: Record<string, string> = {}
     if (!billDate) e.billDate = 'Bill date is required'
-    if (!billNumber.trim()) e.billNumber = 'Bill number is required'
     if (!vendorId) e.vendorId = 'Please select a vendor'
     if (!categoryId) e.categoryId = 'Please select a category'
     if (!paymentMethodId) e.paymentMethodId = 'Please select payment method'
@@ -168,7 +173,11 @@ export default function SubmitBillPage() {
   }
 
   const handleReset = () => {
-    setBillDate(new Date().toISOString().split('T')[0])
+    const d = new Date()
+    const year = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    setBillDate(`${year}-${month}-${day}`)
     setBillNumber('')
     setVendorId('')
     setCategoryId('')

@@ -105,7 +105,7 @@ export async function PATCH(
     const bill = await prisma.bill.update({
       where: { id },
       data: {
-        ...(validated.billNumber && { billNumber: validated.billNumber }),
+        billNumber: validated.billNumber === undefined ? undefined : ((validated.billNumber && validated.billNumber.trim()) ? validated.billNumber.trim() : null),
         ...(validated.billDate && { billDate: new Date(validated.billDate) }),
         ...(validated.amount !== undefined && { amount: validated.amount }),
         ...(validated.remarks !== undefined && { remarks: validated.remarks }),

@@ -6,7 +6,7 @@ export const loginSchema = z.object({
 })
 
 export const billSchema = z.object({
-  billNumber: z.string().min(1, 'Bill number is required'),
+  billNumber: z.string().optional().or(z.literal('')),
   billDate: z.string().min(1, 'Bill date is required'),
   vendorId: z.string().min(1, 'Vendor is required'),
   categoryId: z.string().min(1, 'Category is required'),
@@ -21,7 +21,7 @@ export const billSchema = z.object({
 
 // Schema for public bill submissions (no auth required)
 export const publicBillSchema = z.object({
-  billNumber: z.string().min(1, 'Bill number is required'),
+  billNumber: z.string().optional().or(z.literal('')),
   billDate: z.string().min(1, 'Bill date is required'),
   vendorId: z.string().min(1, 'Vendor is required'),
   categoryId: z.string().min(1, 'Category is required'),

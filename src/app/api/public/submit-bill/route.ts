@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     } else {
       const body = await request.json()
       const validated = publicBillSchema.parse(body)
-      billNumber = validated.billNumber
+      billNumber = validated.billNumber || ''
       billDate = validated.billDate
       vendorId = validated.vendorId
       categoryId = validated.categoryId
@@ -115,10 +115,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Ensure unique billNumber
-    let finalBillNumber = validated.billNumber.trim()
-    const existing = await prisma.bill.findUnique({ where: { billNumber: finalBillNumber } })
-    if (existing) {
-      finalBillNumber = `${finalBillNumber}-${Date.now()}`
+    let finalBillNumber = (validated.billNumber && validated.billNumber.trim()) ? validated.billNumber.trim() : null
+    if (finalBillNumber) {
+      const existing = await prisma.bill.findUnique({ where: { billNumber: finalBillNumber } })
+      if (existing) {
+        finalBillNumber = `${finalBillNumber}-${Date.now()}`
+      }
     }
 
     // Create the bill first

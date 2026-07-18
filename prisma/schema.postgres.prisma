@@ -103,7 +103,7 @@ model PaymentMethod {
 
 model Bill {
   id              String     @id @default(cuid())
-  billNumber      String     @unique
+  billNumber      String?    @unique
   billDate        DateTime
   amount          Decimal    @db.Decimal(10, 2)
   remarks         String?
